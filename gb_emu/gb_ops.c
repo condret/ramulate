@@ -45,6 +45,13 @@ int gb_dec(RReg *reg, const char *dest)							//dec
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest)-1);
 }
 
+int gb_add(RReg *reg, const char *dest, const char *src)
+{
+	if(!(reg && dest && src))
+		return R_FALSE;
+	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest) + r_reg_getv(reg, src));
+}
+
 int gb_swap_reg(RReg *reg, const char *dest)
 {
 	if(!(reg && dest))
@@ -57,7 +64,7 @@ int gb_call_jmp(RReg *reg, const ut16 dest)
 {
 	if(!reg)
 		return R_FALSE;
-	if(dest>0x3fff && dest<0x8000) {						//bankswitches
+	if(dest>0x3fff) {								//bankswitches
 		r_reg_set_value(reg, r_reg_get(reg, "m", -1), r_reg_getv(reg, "mbc"));
 	} else {
 		r_reg_set_value(reg, r_reg_get(reg, "m", -1), 0);
