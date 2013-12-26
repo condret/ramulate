@@ -1,6 +1,6 @@
 #include <gb_ops.h>
 #include <r_asm.h>
-#include <r_io.h>
+#include <r_io.h>		//we need rio-cache here
 #include <r_reg.h>
 
 int gb_ld_mov(RReg *reg, const char *dest, const char *src)
@@ -51,6 +51,18 @@ int gb_swap_reg(RReg *reg, const char *dest)
 		return R_FALSE;
 	ut8 swap = r_reg_getv(reg, dest);
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), (swap>>4) + (swap<<4));
+}
+
+int gb_call_jmp(RReg *reg, const ut16 dest)
+{
+	if(!reg)
+		return R_FALSE;
+	if(dest>0x3fff && dest<0x8000) {						//bankswitches
+		r_reg_set_value(reg, r_reg_get(reg, "m", -1), r_reg_getv(reg, "mbc"));
+	} else {
+		r_reg_set_value(reg, r_reg_get(reg, "m", -1), 0);
+	}
+	return r_reg_set_value(reg, r_reg_get(reg, "pc", -1), dest);
 }
 
 int gb_jmp_rel(RReg* reg, const st8 dest)
