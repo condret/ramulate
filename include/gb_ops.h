@@ -10,3 +10,4 @@ int gb_inc(RReg *reg, const char *dest);
 int gb_dec(RReg *reg, const char *dest);
 int gb_swap_reg(RReg *reg, const char *dest);
 int gb_jmp_rel(RReg *reg, const st8 dest);
+int gb_call_jmp(RReg* reg, const ut16 dest);
