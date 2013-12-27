@@ -12,6 +12,8 @@ int gb_dec(RReg *reg, const char *dest);
 
 int gb_add(RReg *reg, const char *dest, const char *src);
 
+int gb_sub_reg(RReg *reg, const char *src);
+
 int gb_swap_reg(RReg *reg, const char *dest);
 
 int gb_jmp_rel(RReg *reg, const st8 dest);
