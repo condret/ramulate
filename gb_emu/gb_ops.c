@@ -52,6 +52,13 @@ int gb_add(RReg *reg, const char *dest, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest) + r_reg_getv(reg, src));
 }
 
+int gb_sub_reg(RReg *reg, const char *src)
+{
+	if(!(reg && src))
+		return R_FALSE;
+	return r_reg_set_value(reg, r_reg_get(reg, "a", -1), r_reg_getv(reg, "a") - r_reg_getv(reg, src));
+}
+
 int gb_swap_reg(RReg *reg, const char *dest)
 {
 	if(!(reg && dest))
