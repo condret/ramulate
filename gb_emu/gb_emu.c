@@ -44,8 +44,8 @@ int gb_reg_profile(GBemu *gb) {
 		"gpr	af	.16	6	0\n"
 		"gpr	f	.8	6	0\n"
 		"gpr	a	.8	7	0\n"
-		"gpr	z	.1	.55	0\n"
-		"gpr	n	.1	.54	0\n"
+		"gpr	Z	.1	.55	0\n"
+		"gpr	N	.1	.54	0\n"
 		"gpr	H	.1	.53	0\n"
 		"gpr	C	.1	.52	0\n"
 
