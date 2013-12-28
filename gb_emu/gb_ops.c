@@ -70,6 +70,14 @@ int gb_sub_reg(RReg *reg, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, "a", -1), dval);
 }
 
+int gb_cp_reg(RReg *reg, const char *src)
+{
+	ut8 a = r_reg_getv(reg, "a");
+	int ret = gb_sub_reg(reg, src);
+	r_reg_set_value(reg, r_reg_get(reg, "a", -1), a);
+	return ret;
+}
+
 int gb_swap_reg(RReg *reg, const char *dest)
 {
 	if(!(reg && dest))
