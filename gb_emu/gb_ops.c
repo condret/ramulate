@@ -45,18 +45,29 @@ int gb_dec(RReg *reg, const char *dest)							//dec
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest)-1);
 }
 
-int gb_add(RReg *reg, const char *dest, const char *src)
+int gb_add_8(RReg *reg, const char *dest, const char *src)
 {
 	if(!(reg && dest && src))
 		return R_FALSE;
-	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest) + r_reg_getv(reg, src));
+	int ret = r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest) + r_reg_getv(reg, src));
+	if(r_reg_getv(reg, dest))
+		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
+	else
+		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_TRUE);
+	return ret;
 }
 
 int gb_sub_reg(RReg *reg, const char *src)
 {
 	if(!(reg && src))
 		return R_FALSE;
-	return r_reg_set_value(reg, r_reg_get(reg, "a", -1), r_reg_getv(reg, "a") - r_reg_getv(reg, src));
+	ut8 dval = r_reg_getv(reg, "a") - r_reg_getv(reg, src);
+	if(dval)
+		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
+	else
+		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_TRUE);
+	r_reg_set_value(reg, r_reg_get(reg, "N", -1), R_TRUE);
+	return r_reg_set_value(reg, r_reg_get(reg, "a", -1), dval);
 }
 
 int gb_swap_reg(RReg *reg, const char *dest)
