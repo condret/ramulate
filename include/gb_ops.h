@@ -10,7 +10,7 @@ int gb_ld_store_const(RReg *reg, const char *dest, const ut16 src);
 int gb_inc(RReg *reg, const char *dest);
 int gb_dec(RReg *reg, const char *dest);
 
-int gb_add(RReg *reg, const char *dest, const char *src);
+int gb_add_8(RReg *reg, const char *dest, const char *src);
 
 int gb_sub_reg(RReg *reg, const char *src);
 
