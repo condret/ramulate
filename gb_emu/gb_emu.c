@@ -1,3 +1,5 @@
+/* ramulate - LGPL - Copyright 2013 - condret@runas-racer.com */
+
 #include <gb_emu.h>
 
 GBemu *gb_emu_new() {
