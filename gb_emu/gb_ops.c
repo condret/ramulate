@@ -1,3 +1,5 @@
+/* ramulate - LGPL - Copyright 2013 - condret@runas-racer.com */
+
 #include <gb_ops.h>
 #include <r_asm.h>
 #include <r_io.h>		//we need rio-cache here
