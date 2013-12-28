@@ -1,3 +1,5 @@
+/* ramulate - LGPL - Copyright 2013 - condret@runas-racer.com */
+
 #include <r_reg.h>
 #include <r_bin.h>
 #include <r_io.h>
