@@ -37,7 +37,7 @@ int gb_inc(RReg *reg, const char *dest)							//inc
 {
 	if(!(reg && dest))
 		return R_FALSE;
-	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest)-1);
+	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest)+1);
 }
 
 int gb_dec(RReg *reg, const char *dest)							//dec
@@ -126,7 +126,7 @@ int gb_swap_reg(RReg *reg, const char *dest)
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), (swap>>4) + (swap<<4));
 }
 
-int gb_call_jmp(RReg *reg, const ut16 dest)
+int gb_jmp(RReg *reg, const ut16 dest)
 {
 	if(!reg)
 		return R_FALSE;
@@ -138,7 +138,7 @@ int gb_call_jmp(RReg *reg, const ut16 dest)
 	return r_reg_set_value(reg, r_reg_get(reg, "pc", -1), dest);
 }
 
-int gb_call_jmp_cond(RReg *reg, const char *cond, const ut16 dest)
+int gb_jmp_cond(RReg *reg, const char *cond, const ut16 dest)
 {
 	if(!(reg && cond))
 		return R_FALSE;
@@ -149,7 +149,7 @@ int gb_call_jmp_cond(RReg *reg, const char *cond, const ut16 dest)
 		if(!r_reg_getv(reg, cond))
 			return R_TRUE;
 	}
-	return gb_call_jmp(reg, dest);
+	return gb_jmp(reg, dest);
 }
 
 int gb_jmp_rel(RReg *reg, const st8 dest)
@@ -171,4 +171,26 @@ int gb_jmp_rel_cond(RReg *reg, const char *cond, const st8 dest)
 			return R_TRUE;
 	}
 	return gb_jmp_rel(reg, dest);
+}
+
+int gb_call(RReg *reg, const ut16 dest)
+{
+	if(!reg)
+		return R_FALSE;
+	//gb_push(reg, "pc");
+	return gb_jmp(reg, dest);
+}
+
+int gb_call_cond(RReg *reg, const char *cond, const ut16 dest)
+{
+	if(!(reg && cond))
+		return R_FALSE;
+	if(cond[0]=='n') {
+		if(r_reg_getv(reg, &cond[1]))
+			return R_TRUE;
+	} else {
+		if(!r_reg_getv(reg, cond))
+			return R_TRUE;
+	}
+	return gb_call(reg, dest);
 }
