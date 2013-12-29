@@ -51,11 +51,29 @@ int gb_add_8(RReg *reg, const char *dest, const char *src)
 {
 	if(!(reg && dest && src))
 		return R_FALSE;
-	int ret = r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, dest) + r_reg_getv(reg, src));
+	int ret = r_reg_set_value(reg, r_reg_get(reg, dest, -1), (ut8)(r_reg_getv(reg, dest) + r_reg_getv(reg, src)));
 	if(r_reg_getv(reg, dest))
 		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
 	else
 		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_TRUE);
+	return ret;
+}
+
+int gb_adc_reg(RReg *reg, const char *src)
+{
+	if(!(reg && src))
+		return R_FALSE;
+	if((r_reg_getv(reg, "a") % 16) > ((r_reg_getv(reg, "a") + r_reg_getv(reg, src) + r_reg_getv(reg, "C"))%16))
+		r_reg_set_value(reg, r_reg_get(reg, "H", -1), R_TRUE);
+	else
+		r_reg_set_value(reg, r_reg_get(reg, "H", -1), R_FALSE);
+	r_reg_set_value(reg, r_reg_get(reg, "C", -1), (r_reg_getv(reg, "a") + r_reg_getv(reg, src) + r_reg_getv(reg, "C"))/256);
+	int ret = r_reg_set_value(reg, r_reg_get(reg, "a", -1), (ut8)(r_reg_getv(reg, "a") + r_reg_getv(reg, src) + r_reg_getv(reg, "C")));
+	if(r_reg_getv(reg, "a"))
+		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
+	else
+		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_TRUE);
+	r_reg_set_value(reg, r_reg_get(reg, "N", -1), R_FALSE);
 	return ret;
 }
 
@@ -80,6 +98,26 @@ int gb_cp_reg(RReg *reg, const char *src)
 	return ret;
 }
 
+int gb_xor(RReg *reg, const ut8 src){
+	if(!reg)
+		return R_FALSE;
+	r_reg_set_value(reg, r_reg_get(reg, "N", -1), R_FALSE);
+	r_reg_set_value(reg, r_reg_get(reg, "H", -1), R_FALSE);
+	r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
+	if(r_reg_getv(reg, "a") == src)
+		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_TRUE);
+	else
+		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
+	return r_reg_set_value(reg, r_reg_get(reg, "a", -1), r_reg_getv(reg, "a") ^ src);
+}
+
+int gb_xor_reg(RReg *reg, const char *src)
+{
+	if(!(reg && src))
+		return R_FALSE;
+	return gb_xor(reg, r_reg_getv(reg, src));
+}
+
 int gb_swap_reg(RReg *reg, const char *dest)
 {
 	if(!(reg && dest))
@@ -100,9 +138,37 @@ int gb_call_jmp(RReg *reg, const ut16 dest)
 	return r_reg_set_value(reg, r_reg_get(reg, "pc", -1), dest);
 }
 
-int gb_jmp_rel(RReg* reg, const st8 dest)
+int gb_call_jmp_cond(RReg *reg, const char *cond, const ut16 dest)
+{
+	if(!(reg && cond))
+		return R_FALSE;
+	if(cond[0]=='n') {
+		if(r_reg_getv(reg, &cond[1]))
+			return R_TRUE;
+	} else {
+		if(!r_reg_getv(reg, cond))
+			return R_TRUE;
+	}
+	return gb_call_jmp(reg, dest);
+}
+
+int gb_jmp_rel(RReg *reg, const st8 dest)
 {
 	if(!reg)
 		return R_FALSE;
 	return r_reg_set_value(reg, r_reg_get(reg, "pc", -1), r_reg_getv(reg, "pc")+dest);
+}
+
+int gb_jmp_rel_cond(RReg *reg, const char *cond, const st8 dest)
+{
+	if(!(reg && cond))
+		return R_FALSE;
+	if(cond[0]=='n') {
+		if(r_reg_getv(reg, &cond[1]))
+			return R_TRUE;
+	} else {
+		if(!r_reg_getv(reg, cond))
+			return R_TRUE;
+	}
+	return gb_jmp_rel(reg, dest);
 }
