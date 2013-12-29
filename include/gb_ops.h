@@ -24,5 +24,8 @@ int gb_swap_reg(RReg *reg, const char *dest);
 
 int gb_jmp_rel(RReg *reg, const st8 dest);
 int gb_jmp_rel_cond(RReg *reg, const char *cond, const st8 dest);
-int gb_call_jmp(RReg* reg, const ut16 dest);
-int gb_call_jmp_cond(RReg *reg, const char *cond, const ut16 dest);
+int gb_jmp(RReg* reg, const ut16 dest);
+int gb_jmp_cond(RReg *reg, const char *cond, const ut16 dest);
+
+int gb_call(RReg *reg, const ut16 dest);
+int gb_call_cond(RReg *reg, const char *cond, const ut16 dest);
