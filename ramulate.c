@@ -6,6 +6,8 @@
 #include <r_asm.h>
 #include <gb_emu.h>
 
+void gb_init(GBemu *gb);
+
 void main(int argc, char *argv[])
 {
 	if(argc<2) {
@@ -28,30 +30,24 @@ void main(int argc, char *argv[])
 			gb_emu_free(gb);
 			return;
 	}
-	char buf[4];
-	gb_reg_profile(gb);
+	gb_init(gb);
 	show_regs(gb->reg,32);
 	show_regs(gb->reg,16);
 	show_regs(gb->reg,8);
 	show_regs(gb->reg,1);
-	r_asm_setup(gb->a,"gb",8,0);
-	r_asm_set_pc(gb->a, r_reg_getv(gb->reg, "mpc"));
-	r_io_read_at(gb->io, r_reg_getv(gb->reg, "mpc"),buf, 4);
-	r_asm_disassemble(gb->a, gb->op, buf, 4);
-	eprintf("0x%08x\t%s\t;\n",r_reg_getv(gb->reg, "mpc"), gb->op->buf_asm);
-	gb->mbc->type = gb_get_mbc(gb->io);
-	eprintf("MBC-type:\t%i\nLD-DEMO\n",gb->mbc->type);
-	r_reg_set_value(gb->reg, r_reg_get(gb->reg, "Z", -1), 1);
-	gb_ld_mov(gb->reg, "bc", "sp");
+	r_reg_set_value(gb->reg, r_reg_get(gb->reg, "mpc", -1), 0x243);
 	show_regs(gb->reg, 16);
-	gb_ldi_mov(gb->reg, "de", "sp");
+	gb_step(gb);
 	show_regs(gb->reg, 16);
-	gb_ldd_mov(gb->reg, "hl", "sp");
-	show_regs(gb->reg, 16);
-	gb_dec(gb->reg, "b");
-	show_regs(gb->reg, 16);
-	gb_swap_reg(gb->reg, "b");
+	gb_step(gb);
 	show_regs(gb->reg, 16);
 	r_io_close(gb->io,gb->io->fd);
 	gb_emu_free(gb);
+}
+
+void gb_init(GBemu *gb)
+{
+	gb_reg_profile(gb);
+	r_asm_setup(gb->a, "gb", 8, 0);
+	gb->mbc->type = gb_get_mbc(gb->io);
 }
