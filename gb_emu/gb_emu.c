@@ -123,8 +123,42 @@ int gb_step(GBemu* gb){
 			return R_TRUE;				//TODO: fat-switch + arg-parsing
 		case 0x18:
 			return gb_jmp_rel(gb->reg, (st8)buf[1]);
+		case 0x03:
+		case 0x04:
+		case 0x0c:
+		case 0x13:
+		case 0x14:
+		case 0x1c:
+		case 0x23:
+		case 0x24:
+		case 0x2c:
+		case 0x33:
+		case 0x3c:
+			return gb_inc(gb->reg, &gb->op->buf_asm[4]);
+		case 0x05:
+		case 0x0b:
+		case 0x0d:
+		case 0x15:
+		case 0x1b:
+		case 0x1d:
+		case 0x25:
+		case 0x2b:
+		case 0x2d:
+		case 0x3b:
+		case 0x3d:
+			return gb_dec(gb->reg, &gb->op->buf_asm[4]);
+		case 0x88:
+		case 0x89:
+		case 0x8a:
+		case 0x8b:
+		case 0x8c:
+		case 0x8d:
+		case 0x8f:
+			return gb_adc_reg(gb->reg, &gb->op->buf_asm[4]);
+		case 0xc3:
+			return gb_jmp(gb->reg, (buf[2]*0x100)+buf[1]);
 		case 0xcd:
-			return gb_call_jmp(gb->reg, (buf[2]*0x100)+buf[1]);
+			return gb_call(gb->reg, (buf[2]*0x100)+buf[1]);
 	}
-	return R_TRUE;
+	return R_FALSE;
 }
