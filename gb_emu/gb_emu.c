@@ -109,3 +109,22 @@ st8 gb_get_mbc(RIO *io) {
 	}
 	return GB_UMBC;
 }
+
+int gb_step(GBemu* gb){
+	if(!gb)
+		return R_FALSE;
+	ut8 buf[4];
+	r_io_read_at(gb->io, r_reg_getv(gb->reg, "mpc"), buf, 4);
+	r_asm_set_pc(gb->a, r_reg_getv(gb->reg, "pc"));		//mpc does not really exist
+	r_asm_disassemble(gb->a, gb->op, buf, 4);		//used for arg-parsing and op-size
+	r_reg_set_value(gb->reg, r_reg_get(gb->reg, "pc", -1), r_reg_getv(gb->reg, "pc") + gb->op->size);
+	switch(buf[0]) {
+		case 0x00:
+			return R_TRUE;				//TODO: fat-switch + arg-parsing
+		case 0x18:
+			return gb_jmp_rel(gb->reg, (st8)buf[1]);
+		case 0xcd:
+			return gb_call_jmp(gb->reg, (buf[2]*0x100)+buf[1]);
+	}
+	return R_TRUE;
+}
