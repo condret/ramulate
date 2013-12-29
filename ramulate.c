@@ -5,7 +5,6 @@
 #include <r_bin.h>
 #include <r_asm.h>
 #include <gb_emu.h>
-#include <gb_ops.h>
 
 void main(int argc, char *argv[])
 {
@@ -34,7 +33,7 @@ void main(int argc, char *argv[])
 	show_regs(gb->reg,32);
 	show_regs(gb->reg,16);
 	show_regs(gb->reg,8);
-	show_gb_flag_regs(gb->reg);
+	show_regs(gb->reg,1);
 	r_asm_setup(gb->a,"gb",8,0);
 	r_asm_set_pc(gb->a, r_reg_getv(gb->reg, "mpc"));
 	r_io_read_at(gb->io, r_reg_getv(gb->reg, "mpc"),buf, 4);
@@ -42,6 +41,7 @@ void main(int argc, char *argv[])
 	eprintf("0x%08x\t%s\t;\n",r_reg_getv(gb->reg, "mpc"), gb->op->buf_asm);
 	gb->mbc->type = gb_get_mbc(gb->io);
 	eprintf("MBC-type:\t%i\nLD-DEMO\n",gb->mbc->type);
+	r_reg_set_value(gb->reg, r_reg_get(gb->reg, "Z", -1), 1);
 	gb_ld_mov(gb->reg, "bc", "sp");
 	show_regs(gb->reg, 16);
 	gb_ldi_mov(gb->reg, "de", "sp");
