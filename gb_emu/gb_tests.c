@@ -17,11 +17,3 @@ void show_regs(struct r_reg_t *reg, int bitsize) {
 			eprintf(" - %s : 0x%08"PFMT64x"\n", ri->name, r_reg_get_value(reg, ri));
 	}
 }
-
-void show_gb_flag_regs(RReg *reg) {
-	printf("flag registers:\n");
-	printf(" - C : 0x%08"PFMT64x"\n",r_reg_get_value(reg, r_reg_get(reg,"C",-1)));
-	printf(" - H : 0x%08"PFMT64x"\n",r_reg_get_value(reg, r_reg_get(reg,"H",-1)));
-	printf(" - n : 0x%08"PFMT64x"\n",r_reg_get_value(reg, r_reg_get(reg,"n",-1)));
-	printf(" - z : 0x%08"PFMT64x"\n",r_reg_get_value(reg, r_reg_get(reg,"z",-1)));
-}
