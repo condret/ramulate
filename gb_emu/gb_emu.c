@@ -2,6 +2,7 @@
 
 #include <gb_emu.h>
 
+
 GBemu *gb_emu_new() {
 	struct gb_emu_t *gb = R_NEW0(GBemu);
 	gb->reg = r_reg_new();
@@ -120,9 +121,15 @@ int gb_step(GBemu* gb){
 	r_reg_set_value(gb->reg, r_reg_get(gb->reg, "pc", -1), r_reg_getv(gb->reg, "pc") + gb->op->size);
 	switch(buf[0]) {
 		case 0x00:
-			return R_TRUE;				//TODO: fat-switch + arg-parsing
+			return R_TRUE;				//TODO: more ops
 		case 0x18:
 			return gb_jmp_rel(gb->reg, (st8)buf[1]);
+		case 0x20:
+		case 0x28:
+		case 0x30:
+		case 0x38:
+			gb->op->buf_asm[strlen(gb->op->buf_asm)-6] = 0;
+			return gb_jmp_rel_cond(gb->reg, &gb->op->buf_asm[3], (st8)buf[1]);
 		case 0x03:
 		case 0x04:
 		case 0x0c:
@@ -157,8 +164,22 @@ int gb_step(GBemu* gb){
 			return gb_adc_reg(gb->reg, &gb->op->buf_asm[4]);
 		case 0xc3:
 			return gb_jmp(gb->reg, (buf[2]*0x100)+buf[1]);
+		case 0xe9:
+			return gb_jmp(gb->reg, r_reg_getv(gb->reg, "hl"));
+		case 0xc2:
+		case 0xca:
+		case 0xd2:
+		case 0xda:
+			gb->op->buf_asm[strlen(gb->op->buf_asm)-8] = 0;
+			return gb_jmp_cond(gb->reg, &gb->op->buf_asm[3], (buf[2]*0x100)+buf[1]);
 		case 0xcd:
 			return gb_call(gb->reg, (buf[2]*0x100)+buf[1]);
+		case 0xc4:
+		case 0xcc:
+		case 0xd4:
+		case 0xdc:
+			gb->op->buf_asm[strlen(gb->op->buf_asm)-8] = 0;
+			return gb_call_cond(gb->reg, &gb->op->buf_asm[5], (buf[2]*0x100)+buf[1]);
 	}
 	return R_FALSE;
 }
