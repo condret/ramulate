@@ -5,6 +5,7 @@
 #include <r_io.h>
 #include <r_asm.h>
 #include <gb_ops.h>
+#include <string.h>
 
 enum {
 	GB_UMBC = -1,
