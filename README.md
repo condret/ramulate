@@ -5,8 +5,8 @@ this will be an emulator for several video-game-consoles, depending on the radar
 This will emulate these archs:
 
 
-Gameboy-z80 <br>
-  `-you can use http://runas-racer.com/prj/gbdis/hackboy.gb for legal testing. It's a tiny gb-rom I created once for
+Gameboy-z80
+  `-you can use http://runas-racer.com/prj/gbdis/hackboy.gb for legal testing. It's a tiny gb-rom I created once for <br>
   testing payloads for gameboy.
     Here is how it works( if you want to play with it):
     arrow keys: normal seek
@@ -29,3 +29,4 @@ snes
 
 
 A lot of things need be to done
+</p>
