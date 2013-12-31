@@ -5,6 +5,30 @@
 #include <r_io.h>		//we need rio-cache here
 #include <r_reg.h>
 
+int gb_push(RIO *io, RReg *reg, const char *src)					//might be weak
+{
+	if(!(io && reg && src))
+		return R_FALSE;
+	ut16 *regval;
+	ut8 push[2];
+	regval = (ut16 *)push;
+	*regval = r_reg_getv(reg, src);
+	r_io_cache_write(io, r_reg_getv(reg, "sp") -2, push, 2);
+	return r_reg_set_value(reg, r_reg_get(reg, "sp", -1), r_reg_getv(reg, "sp") -2);
+}
+
+int gb_pop(RIO *io, RReg *reg, const char *dest)					//might be weak
+{
+	if(!(io && reg && dest))
+		return R_FALSE;
+	ut16 *regval;
+	ut8 pop[2];
+	regval = (ut16 *)pop;
+	r_io_cache_read(io, r_reg_getv(reg, "sp"), pop, 2);
+	r_reg_set_value(reg, r_reg_get(reg, dest, -1), *regval);
+	return r_reg_set_value(reg, r_reg_get(reg, "sp", -1), r_reg_getv(reg, "sp") +2);
+}
+
 int gb_ld_mov(RReg *reg, const char *dest, const char *src)
 {
 	if(!(reg && dest && src))
@@ -130,7 +154,7 @@ int gb_jmp(RReg *reg, const ut16 dest)
 {
 	if(!reg)
 		return R_FALSE;
-	if(dest>0x3fff) {								//bankswitches
+	if(dest>0x3fff && dest<0x8000) {						//bankswitches
 		r_reg_set_value(reg, r_reg_get(reg, "m", -1), r_reg_getv(reg, "mbc"));
 	} else {
 		r_reg_set_value(reg, r_reg_get(reg, "m", -1), 0);
@@ -173,17 +197,16 @@ int gb_jmp_rel_cond(RReg *reg, const char *cond, const st8 dest)
 	return gb_jmp_rel(reg, dest);
 }
 
-int gb_call(RReg *reg, const ut16 dest)
+int gb_call(RIO *io, RReg *reg, const ut16 dest)
 {
-	if(!reg)
+	if(!gb_push(io, reg, "pc"))
 		return R_FALSE;
-	//gb_push(reg, "pc");
 	return gb_jmp(reg, dest);
 }
 
-int gb_call_cond(RReg *reg, const char *cond, const ut16 dest)
+int gb_call_cond(RIO *io, RReg *reg, const char *cond, const ut16 dest)
 {
-	if(!(reg && cond))
+	if(!(io && reg && cond))
 		return R_FALSE;
 	if(cond[0]=='n') {
 		if(r_reg_getv(reg, &cond[1]))
@@ -192,5 +215,26 @@ int gb_call_cond(RReg *reg, const char *cond, const ut16 dest)
 		if(!r_reg_getv(reg, cond))
 			return R_TRUE;
 	}
-	return gb_call(reg, dest);
+	return gb_call(io, reg, dest);
+}
+
+int gb_ret(RIO *io, RReg *reg)
+{
+	if(!(gb_pop(io, reg, "pc")))
+		return R_FALSE;
+	return gb_jmp(reg, r_reg_getv(reg, "pc"));			//I am lazy
+}
+
+int gb_ret_cond(RIO *io, RReg *reg, const char *cond)
+{
+	if(!(io && reg && cond))
+		return R_FALSE;
+	if(cond[0]=='n') {
+		if(r_reg_getv(reg, &cond[1]))
+			return R_TRUE;
+	} else {
+		if(!r_reg_getv(reg, cond))
+			return R_TRUE;
+	}
+	return gb_ret(io, reg);
 }
