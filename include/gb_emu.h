@@ -4,8 +4,9 @@
 #include <r_bin.h>
 #include <r_io.h>
 #include <r_asm.h>
-#include <gb_ops.h>
+#include <r_list.h>
 #include <string.h>
+#include <gb_ops.h>
 
 enum {
 	GB_UMBC = -1,
@@ -41,9 +42,9 @@ void gb_emu_free(GBemu *gb);
 #define gb_mbc_free free
 
 //setup & helpers
+void gb_sections(RIO *io, RBin *bin);
 int gb_reg_profile(GBemu *gb);
 st8 gb_get_mbc(RIO *io);
-
 
 // testing area
 void show_regs(struct r_reg_t *reg, int bitsize);
