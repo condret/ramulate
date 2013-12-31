@@ -30,17 +30,18 @@ void main(int argc, char *argv[])
 			gb_emu_free(gb);
 			return;
 	}
+	ut32 counter=0;
 	gb_init(gb);
 	show_regs(gb->reg,32);
 	show_regs(gb->reg,16);
 	show_regs(gb->reg,8);
 	show_regs(gb->reg,1);
-	r_reg_set_value(gb->reg, r_reg_get(gb->reg, "mpc", -1), 0x243);
-	show_regs(gb->reg, 16);
-	gb_step(gb);
-	show_regs(gb->reg, 16);
-	gb_step(gb);
-	show_regs(gb->reg, 16);
+	while(gb_step(gb)) {
+		counter++;
+		show_regs(gb->reg, 32);
+		show_regs(gb->reg, 16);
+	}
+	eprintf("\n%i ops were emulated!!!\n",counter);
 	r_io_close(gb->io,gb->io->fd);
 	gb_emu_free(gb);
 }
@@ -50,4 +51,5 @@ void gb_init(GBemu *gb)
 	gb_reg_profile(gb);
 	r_asm_setup(gb->a, "gb", 8, 0);
 	gb->mbc->type = gb_get_mbc(gb->io);
+	gb_sections(gb->io, gb->bin);
 }
