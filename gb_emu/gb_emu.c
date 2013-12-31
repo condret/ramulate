@@ -3,7 +3,8 @@
 #include <gb_emu.h>
 
 
-GBemu *gb_emu_new() {
+GBemu *gb_emu_new()
+{
 	struct gb_emu_t *gb = R_NEW0(GBemu);
 	gb->reg = r_reg_new();
 	gb->io = r_io_new();
@@ -14,7 +15,8 @@ GBemu *gb_emu_new() {
 	return gb;
 }
 
-void gb_emu_free(GBemu *gb) {
+void gb_emu_free(GBemu *gb)
+{
 	r_reg_free(gb->reg);
 	r_io_free(gb->io);
 	r_bin_free(gb->bin);
@@ -24,12 +26,25 @@ void gb_emu_free(GBemu *gb) {
 	free(gb);
 }
 
-GBmbc *gb_mbc_new() {
+GBmbc *gb_mbc_new()
+{
 	GBmbc *mbc = R_NEW0(GBmbc);
 	return mbc;
 }
 
-int gb_reg_profile(GBemu *gb) {
+void gb_sections(RIO *io, RBin *bin)					//rombanks
+{
+	RList *sections = r_bin_get_sections(bin);
+	RBinSection *section;
+	RListIter *iter;
+	r_list_foreach(sections, iter, section) {
+		r_io_section_add(io,	section->offset, section->rva, section->size,
+					section->vsize, section->srwx, section->name);
+	}
+}
+
+int gb_reg_profile(GBemu *gb)
+{
 	int ret = r_reg_set_profile_string (gb->reg,			//use ranal here
 		"=pc	mpc\n"
 		"=sp	sp\n"
@@ -70,7 +85,8 @@ int gb_reg_profile(GBemu *gb) {
 	return ret;
 }
 
-st8 gb_get_mbc(RIO *io) {
+st8 gb_get_mbc(RIO *io)
+{
 	ut8 buf;
 	r_io_read_at(io,0x147,&buf,1);
 	switch(buf) {
@@ -111,17 +127,22 @@ st8 gb_get_mbc(RIO *io) {
 	return GB_UMBC;
 }
 
-int gb_step(GBemu* gb){
+int gb_step(GBemu* gb)
+{
 	if(!gb)
 		return R_FALSE;
 	ut8 buf[4];
-	r_io_read_at(gb->io, r_reg_getv(gb->reg, "mpc"), buf, 4);
-	r_asm_set_pc(gb->a, r_reg_getv(gb->reg, "pc"));		//mpc does not really exist
-	r_asm_disassemble(gb->a, gb->op, buf, 4);		//used for arg-parsing and op-size
+	if(r_reg_getv(gb->reg, "pc")<0x8000) {
+		r_io_read_at(gb->io, r_reg_getv(gb->reg, "mpc"), buf, 4);
+	} else {
+		r_io_cache_read(gb->io, r_reg_getv(gb->reg, "pc"), buf, 4);	//stack-execution, ...
+	}
+	r_asm_set_pc(gb->a, r_reg_getv(gb->reg, "pc"));				//mpc does not really exist
+	r_asm_disassemble(gb->a, gb->op, buf, 4);				//used for arg-parsing and op-size
 	r_reg_set_value(gb->reg, r_reg_get(gb->reg, "pc", -1), r_reg_getv(gb->reg, "pc") + gb->op->size);
 	switch(buf[0]) {
 		case 0x00:
-			return R_TRUE;				//TODO: more ops
+			return R_TRUE;						//TODO: more ops
 		case 0x18:
 			return gb_jmp_rel(gb->reg, (st8)buf[1]);
 		case 0x20:
@@ -162,6 +183,14 @@ int gb_step(GBemu* gb){
 		case 0x8d:
 		case 0x8f:
 			return gb_adc_reg(gb->reg, &gb->op->buf_asm[4]);
+		case 0xa8:
+		case 0xa9:
+		case 0xaa:
+		case 0xab:
+		case 0xac:
+		case 0xad:
+		case 0xaf:
+			return gb_xor_reg(gb->reg, &gb->op->buf_asm[4]);
 		case 0xc3:
 			return gb_jmp(gb->reg, (buf[2]*0x100)+buf[1]);
 		case 0xe9:
@@ -173,13 +202,31 @@ int gb_step(GBemu* gb){
 			gb->op->buf_asm[strlen(gb->op->buf_asm)-8] = 0;
 			return gb_jmp_cond(gb->reg, &gb->op->buf_asm[3], (buf[2]*0x100)+buf[1]);
 		case 0xcd:
-			return gb_call(gb->reg, (buf[2]*0x100)+buf[1]);
+			return gb_call(gb->io, gb->reg, (buf[2]*0x100)+buf[1]);
 		case 0xc4:
 		case 0xcc:
 		case 0xd4:
 		case 0xdc:
 			gb->op->buf_asm[strlen(gb->op->buf_asm)-8] = 0;
-			return gb_call_cond(gb->reg, &gb->op->buf_asm[5], (buf[2]*0x100)+buf[1]);
+			return gb_call_cond(gb->io, gb->reg, &gb->op->buf_asm[5], (buf[2]*0x100)+buf[1]);
+		case 0xc9:
+		case 0xd9:
+			return gb_ret(gb->io, gb->reg);
+		case 0xc0:
+		case 0xc8:
+		case 0xd0:
+		case 0xd8:
+			return gb_ret_cond(gb->io, gb->reg, &gb->op->buf_asm[4]);
+		case 0xc5:
+		case 0xd5:
+		case 0xe5:
+		case 0xf5:
+			return gb_push(gb->io, gb->reg, &gb->op->buf_asm[5]);
+		case 0xc1:
+		case 0xd1:
+		case 0xe1:
+		case 0xf1:
+			return gb_pop(gb->io, gb->reg, &gb->op->buf_asm[4]);
 	}
 	return R_FALSE;
 }
