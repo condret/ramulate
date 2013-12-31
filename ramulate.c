@@ -36,12 +36,10 @@ void main(int argc, char *argv[])
 	show_regs(gb->reg,16);
 	show_regs(gb->reg,8);
 	show_regs(gb->reg,1);
-	while(gb_step(gb)) {
+	while(gb_step(gb) && counter!=0xff)
 		counter++;
-		show_regs(gb->reg, 32);
-		show_regs(gb->reg, 16);
-	}
 	eprintf("\n%i ops were emulated!!!\n",counter);
+	show_regs(gb->reg, 16);
 	r_io_close(gb->io,gb->io->fd);
 	gb_emu_free(gb);
 }
