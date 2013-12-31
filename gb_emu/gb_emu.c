@@ -131,6 +131,7 @@ int gb_step(GBemu* gb)
 {
 	if(!gb)
 		return R_FALSE;
+	int i;
 	ut8 buf[4];
 	if(r_reg_getv(gb->reg, "pc")<0x8000) {
 		r_io_read_at(gb->io, r_reg_getv(gb->reg, "mpc"), buf, 4);
@@ -139,10 +140,29 @@ int gb_step(GBemu* gb)
 	}
 	r_asm_set_pc(gb->a, r_reg_getv(gb->reg, "pc"));				//mpc does not really exist
 	r_asm_disassemble(gb->a, gb->op, buf, 4);				//used for arg-parsing and op-size
+	eprintf("<0x%08x>:\t", r_reg_getv(gb->reg, "mpc"));
+	for(i=0; i< gb->op->size; i++)
+		eprintf("%02x",buf[i]);
+	eprintf("\t%s\n",gb->op->buf_asm);
 	r_reg_set_value(gb->reg, r_reg_get(gb->reg, "pc", -1), r_reg_getv(gb->reg, "pc") + gb->op->size);
 	switch(buf[0]) {
-		case 0x00:
+		case 0x00:							//nop
 			return R_TRUE;						//TODO: more ops
+		case 0x01:
+		case 0x11:
+		case 0x21:
+		case 0x31:
+			gb->op->buf_asm[5] = 0;
+			return gb_ld_store_const(gb->reg, &gb->op->buf_asm[3], (buf[2]*0x100)+buf[1]);
+		case 0x06:
+		case 0x0e:
+		case 0x16:
+		case 0x1e:
+		case 0x26:
+		case 0x2e:
+		case 0x3e:
+			gb->op->buf_asm[4] = 0;
+			return gb_ld_store_const(gb->reg, &gb->op->buf_asm[3], buf[1]);
 		case 0x18:
 			return gb_jmp_rel(gb->reg, (st8)buf[1]);
 		case 0x20:
@@ -175,6 +195,57 @@ int gb_step(GBemu* gb)
 		case 0x3b:
 		case 0x3d:
 			return gb_dec(gb->reg, &gb->op->buf_asm[4]);
+		case 0x40:
+		case 0x41:
+		case 0x42:
+		case 0x43:
+		case 0x44:
+		case 0x45:
+		case 0x47:
+		case 0x48:
+		case 0x49:
+		case 0x4a:
+		case 0x4b:
+		case 0x4c:
+		case 0x4d:
+		case 0x4f:
+		case 0x50:
+		case 0x51:
+		case 0x52:
+		case 0x53:
+		case 0x54:
+		case 0x55:
+		case 0x57:
+		case 0x58:
+		case 0x59:
+		case 0x5a:
+		case 0x5b:
+		case 0x5c:
+		case 0x5d:
+		case 0x5f:
+		case 0x60:
+		case 0x61:
+		case 0x62:
+		case 0x63:
+		case 0x64:
+		case 0x65:
+		case 0x67:
+		case 0x68:
+		case 0x69:
+		case 0x6a:
+		case 0x6b:
+		case 0x6c:
+		case 0x6d:
+		case 0x6f:
+		case 0x78:
+		case 0x79:
+		case 0x7a:
+		case 0x7b:
+		case 0x7c:
+		case 0x7d:
+		case 0x7f:
+			gb->op->buf_asm[4] = 0;
+			return gb_ld_mov(gb->reg, &gb->op->buf_asm[3], &gb->op->buf_asm[6]);
 		case 0x88:
 		case 0x89:
 		case 0x8a:
@@ -210,8 +281,9 @@ int gb_step(GBemu* gb)
 			gb->op->buf_asm[strlen(gb->op->buf_asm)-8] = 0;
 			return gb_call_cond(gb->io, gb->reg, &gb->op->buf_asm[5], (buf[2]*0x100)+buf[1]);
 		case 0xc9:
-		case 0xd9:
 			return gb_ret(gb->io, gb->reg);
+		case 0xd9:
+			return gb_reti(gb->io, gb->reg);
 		case 0xc0:
 		case 0xc8:
 		case 0xd0:
@@ -227,6 +299,32 @@ int gb_step(GBemu* gb)
 		case 0xe1:
 		case 0xf1:
 			return gb_pop(gb->io, gb->reg, &gb->op->buf_asm[4]);
+		case 0xe0:
+			return gb_ld_load_to(gb->io, gb->reg, buf[1]+0xff00, "a");
+		case 0xea:
+			return gb_ld_load_to(gb->io, gb->reg, (buf[2]*0x100)+buf[1], "a");
+		case 0xf0:
+			return gb_ld_store_from(gb->io, gb->reg, "a", buf[1]+0xff00);
+		case 0xf3:
+			return gb_di(gb->io);
+		case 0xfb:
+			return gb_ei(gb->io);
+		case 0xfe:
+			return gb_cp_const(gb->reg, buf[1]);
+		case 0xcb:
+			switch(buf[1]/8) {
+				case 16:
+				case 17:
+				case 18:
+				case 19:
+				case 20:
+				case 21:
+				case 22:
+				case 23:
+					if((buf[1]%8) == 6)
+						return R_FALSE;
+					return gb_res(gb->reg, (buf[1]/8)-16, &gb->op->buf_asm[7]);
+			}
 	}
 	return R_FALSE;
 }
