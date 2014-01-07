@@ -7,6 +7,8 @@
 #include <gb_emu.h>
 
 void gb_init(GBemu *gb);
+void gb_vblank(GBemu *gb);
+
 
 void main(int argc, char *argv[])
 {
@@ -31,17 +33,38 @@ void main(int argc, char *argv[])
 			return;
 	}
 	ut32 counter=0;
+	ut8 intc=0;
+	ut8 flg;
 	gb_init(gb);
 	show_regs(gb->reg,32);
 	show_regs(gb->reg,16);
 	show_regs(gb->reg,8);
 	show_regs(gb->reg,1);
-	while(gb_step(gb) && counter!=0xff)
+	while(gb_step(gb) && counter!=0xff) {
+		intc = (intc+1)%4;
+		if (!intc  && r_reg_getv(gb->reg, "ime")) {
+			gb_di(gb->reg);
+			flg = 1;
+			r_io_cache_write(gb->io, 0xff0f, &flg, 1);
+			gb_vblank(gb);
+			flg = 0;
+			r_io_cache_write(gb->io, 0xff0f, &flg, 1);
+		}
 		counter++;
+	}
 	eprintf("\n%i ops were emulated!!!\n",counter);
 	show_regs(gb->reg, 16);
 	r_io_close(gb->io,gb->io->fd);
 	gb_emu_free(gb);
+}
+
+void gb_vblank(GBemu *gb)							//for testing, will be deprecated later
+{
+	ut8 nxt = 0;
+	gb_call(gb->io, gb->reg, 0x40);
+	while(gb_step(gb) && !(nxt == 0xd9))
+		r_io_cache_read(gb->io, r_reg_getv(gb->reg, "mpc"), &nxt, 1);
+	gb_step(gb);
 }
 
 void gb_init(GBemu *gb)
@@ -50,4 +73,48 @@ void gb_init(GBemu *gb)
 	r_asm_setup(gb->a, "gb", 8, 0);
 	gb->mbc->type = gb_get_mbc(gb->io);
 	gb_sections(gb->io, gb->bin);
+	ut8 wbuf=0;
+	r_io_cache_write(gb->io, 0xff05, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff06, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff07, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff17, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff21, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff22, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff42, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff43, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff45, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff4a, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff4b, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xffff, &wbuf, 1);
+	wbuf = 0x80;
+	r_io_cache_write(gb->io, 0xff10, &wbuf, 1);
+	wbuf = 0xbf;
+	r_io_cache_write(gb->io, 0xff11, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff14, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff19, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff1e, &wbuf, 1);
+	wbuf = 0xf3;
+	r_io_cache_write(gb->io, 0xff12, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff25, &wbuf, 1);
+	wbuf = 0x3f;
+	r_io_cache_write(gb->io, 0xff16, &wbuf, 1);
+	wbuf = 0x7f;
+	r_io_cache_write(gb->io, 0xff1a, &wbuf, 1);
+	wbuf = 0xff;
+	r_io_cache_write(gb->io, 0xff1b, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff20, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff48, &wbuf, 1);
+	r_io_cache_write(gb->io, 0xff49, &wbuf, 1);
+	wbuf = 0x9f;
+	r_io_cache_write(gb->io, 0xff1c, &wbuf, 1);
+	wbuf = 0x77;
+	r_io_cache_write(gb->io, 0xff24, &wbuf, 1);
+	wbuf = 0xf3;
+	r_io_cache_write(gb->io, 0xff25, &wbuf, 1);
+	wbuf = 0xf1;
+	r_io_cache_write(gb->io, 0xff26, &wbuf, 1);
+	wbuf = 0x91;
+	r_io_cache_write(gb->io, 0xff40, &wbuf, 1);
+	wbuf = 0xfc;
+	r_io_cache_write(gb->io, 0xff47, &wbuf, 1);
 }
