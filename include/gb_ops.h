@@ -10,8 +10,6 @@ int gb_ei(RReg *reg);
 int gb_di(RReg *reg);
 
 int gb_ld_mov(RReg *reg, const char *dest, const char *src);
-int gb_ldi_mov(RReg *reg, const char *dest, const char *src);
-int gb_ldd_mov(RReg *reg, const char *dest, const char *src);
 int gb_ld_store_const(RReg *reg, const char *dest, const ut16 src);
 int gb_ld_load_to(RIO *io, RReg *reg, const ut16 dest, const char *src);
 int gb_ld_store_from(RIO *io, RReg *reg, const char *dest, const ut16 src);
@@ -49,6 +47,9 @@ int gb_srl_at(RIO *io, RReg *reg, const ut16 src);
 int gb_sra(RReg *reg, const char *src);
 int gb_sra_at(RIO *io, RReg *reg, const ut16 src);
 int gb_rr(RReg *reg, const char *src);
+int gb_rr_at(RIO *io, RReg *reg, const ut16 src);
+int gb_rl(RReg *reg, const char *src);
+int gb_rl_at(RIO *io, RReg *reg, const ut16 src);
 
 int gb_jmp_rel(RReg *reg, const st8 dest);
 int gb_jmp_rel_cond(RReg *reg, const char *cond, const st8 dest);
