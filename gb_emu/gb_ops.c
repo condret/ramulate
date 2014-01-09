@@ -54,20 +54,6 @@ int gb_ld_mov(RReg *reg, const char *dest, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, src));
 }
 
-int gb_ldi_mov(RReg *reg, const char *dest, const char *src)				//ld+inc
-{
-	if(!(reg && dest && src))
-		return R_FALSE;
-	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, src)+1);
-}
-
-int gb_ldd_mov(RReg *reg, const char *dest, const char *src)				//ld+dec
-{
-	if(!(reg && dest && src))
-		return R_FALSE;
-	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), r_reg_getv(reg, src)-1);
-}
-
 int gb_ld_store_const(RReg *reg, const char *dest, const ut16 src)
 {
 	if(!(reg && dest))
@@ -423,6 +409,61 @@ int gb_rr(RReg *reg, const char *src)
 	else
 		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
 	return r_reg_set_value(reg, r_reg_get(reg, src, -1), dval);
+}
+
+int gb_rr_at(RIO *io, RReg *reg, const ut16 src)
+{
+	if(!(io &&reg))
+		return R_FALSE;
+	ut8 dval;
+	r_io_cache_read(io, src, &dval, 1);
+	if(r_reg_getv(reg, "C"))
+		gb_set(reg, 7, "a");
+	else
+		gb_res(reg, 7, "a");
+	dval = (dval>>1) + (dval<<7);
+	if(dval & 0x1)
+		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_TRUE);
+	else
+		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
+	r_io_cache_write(io, src, &dval, 1);
+	return R_TRUE;
+}
+
+int gb_rl(RReg *reg, const char *src)
+{
+	if(!(reg && src))
+		return R_FALSE;
+	ut8 dval = r_reg_getv(reg, src);
+	if(r_reg_getv(reg, "C"))
+		gb_set(reg, 0, "a");
+	else
+		gb_res(reg, 0, "a");
+	dval = (dval>>7) + (dval<<1);
+	if(dval & (0x1<<7))
+		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_TRUE);
+	else
+		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
+	return r_reg_set_value(reg, r_reg_get(reg, src, -1), dval);
+}
+
+int gb_rl_at(RIO *io, RReg *reg, const ut16 src)
+{
+	if(!(io &&reg))
+		return R_FALSE;
+	ut8 dval;
+	r_io_cache_read(io, src, &dval, 1);
+	if(r_reg_getv(reg, "C"))
+		gb_set(reg, 0, "a");
+	else
+		gb_res(reg, 0, "a");
+	dval = (dval>>7) + (dval<<1);
+	if(dval & (0x1<<7))
+		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_TRUE);
+	else
+		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
+	r_io_cache_write(io, src, &dval, 1);
+	return R_TRUE;
 }
 
 int gb_jmp(RReg *reg, const ut16 dest)
