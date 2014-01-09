@@ -7,7 +7,6 @@
 #include <gb_emu.h>
 
 void gb_init(GBemu *gb);
-void gb_vblank(GBemu *gb);
 
 
 void main(int argc, char *argv[])
@@ -33,38 +32,17 @@ void main(int argc, char *argv[])
 			return;
 	}
 	ut32 counter=0;
-	ut8 intc=0;
-	ut8 flg;
 	gb_init(gb);
 	show_regs(gb->reg,32);
 	show_regs(gb->reg,16);
 	show_regs(gb->reg,8);
 	show_regs(gb->reg,1);
-	while(gb_step(gb) && counter!=0xff) {
-		intc = (intc+1)%4;
-		if (!intc  && r_reg_getv(gb->reg, "ime")) {
-			gb_di(gb->reg);
-			flg = 1;
-			r_io_cache_write(gb->io, 0xff0f, &flg, 1);
-			gb_vblank(gb);
-			flg = 0;
-			r_io_cache_write(gb->io, 0xff0f, &flg, 1);
-		}
+	while(gb_step(gb) && counter!=0xff)
 		counter++;
-	}
 	eprintf("\n%i ops were emulated!!!\n",counter);
 	show_regs(gb->reg, 16);
 	r_io_close(gb->io,gb->io->fd);
 	gb_emu_free(gb);
-}
-
-void gb_vblank(GBemu *gb)							//for testing, will be deprecated later
-{
-	ut8 nxt = 0;
-	gb_call(gb->io, gb->reg, 0x40);
-	while(gb_step(gb) && !(nxt == 0xd9))
-		r_io_cache_read(gb->io, r_reg_getv(gb->reg, "mpc"), &nxt, 1);
-	gb_step(gb);
 }
 
 void gb_init(GBemu *gb)
