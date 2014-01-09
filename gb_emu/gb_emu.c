@@ -178,6 +178,14 @@ int gb_step(GBemu* gb)
 		case 0x38:
 			gb->op->buf_asm[strlen(gb->op->buf_asm)-6] = 0;
 			return gb_jmp_rel_cond(gb->reg, &gb->op->buf_asm[3], (st8)buf[1]);
+		case 0x22:													//ldi
+			if(gb_ld_load_to(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"), "a") && gb_inc(gb->reg, "hl"))
+				return R_TRUE;
+			break;
+		case 0x2a:													//ldi
+			if(gb_ld_store_from(gb->io, gb->reg, "a", r_reg_getv(gb->reg, "hl")) && gb_inc(gb->reg, "hl"))
+				return R_TRUE;
+			break;
 		case 0x03:
 		case 0x04:
 		case 0x0c:
@@ -190,6 +198,14 @@ int gb_step(GBemu* gb)
 		case 0x33:
 		case 0x3c:
 			return gb_inc(gb->reg, &gb->op->buf_asm[4]);
+		case 0x32:													//ldd
+			if(gb_ld_load_to(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"), "a") && gb_dec(gb->reg, "hl"))
+				return R_TRUE;
+			break;
+		case 0x3a:													//ldd
+			if(gb_ld_store_from(gb->io, gb->reg, "a", r_reg_getv(gb->reg, "hl")) && gb_dec(gb->reg, "hl"))
+				return R_TRUE;
+			break;
 		case 0x05:
 		case 0x0b:
 		case 0x0d:
@@ -202,6 +218,8 @@ int gb_step(GBemu* gb)
 		case 0x3b:
 		case 0x3d:
 			return gb_dec(gb->reg, &gb->op->buf_asm[4]);
+		case 0x37:
+			return r_reg_set_value(gb->reg, r_reg_get(gb->reg, "C", -1), R_TRUE);					//scf
 		case 0x40:
 		case 0x41:
 		case 0x42:
@@ -354,10 +372,32 @@ int gb_step(GBemu* gb)
 			return gb_ei(gb->reg);
 		case 0xfe:
 			return gb_cp_const(gb->reg, buf[1]);
+		case 0xc7:
+			return gb_call(gb->io, gb->reg, 0);
+		case 0xcf:
+			return gb_call(gb->io, gb->reg, 8);
+		case 0xd7:
+			return gb_call(gb->io, gb->reg, 16);
+		case 0xdf:
+			return gb_call(gb->io, gb->reg, 24);
+		case 0xe7:
+			return gb_call(gb->io, gb->reg, 32);
+		case 0xef:
+			return gb_call(gb->io, gb->reg, 40);
+		case 0xf7:
+			return gb_call(gb->io, gb->reg, 48);
 		case 0xff:
 			return gb_call(gb->io, gb->reg, 56);
 		case 0xcb:
 			switch(buf[1]/8) {
+				case 2:
+					if(buf[1]%8 == 6)
+						return gb_rl_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+					return gb_rl(gb->reg, &gb->op->buf_asm[3]);
+				case 3:
+					if(buf[1]%8 == 6)
+						return gb_rr_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+					return gb_rr(gb->reg, &gb->op->buf_asm[3]);
 				case 4:
 					if(buf[1]%8 == 6)
 						return gb_sla_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
