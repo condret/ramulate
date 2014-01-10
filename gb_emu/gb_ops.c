@@ -1,34 +1,37 @@
 /* ramulate - LGPL - Copyright 2013 - condret@runas-racer.com */
 
 #include <gb_ops.h>
+#include <gb_emu.h>
 #include <r_asm.h>
 #include <r_io.h>		//we need rio-cache here
 #include <r_reg.h>
 
-int gb_push(RIO *io, RReg *reg, const char *src)					//might be weak
+int gb_push(void *e, RReg *reg, const char *src)					//might be weak
 {
-	if(!(io && reg && src))
+	if(!(e && reg && src))
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 //	if(!(r_reg_getv(reg, "sp")>0x8001))						//check this please
 //		return R_FALSE;
 	ut16 *regval;
 	ut8 push[2];
 	regval = (ut16 *)push;
 	*regval = r_reg_getv(reg, src);
-	r_io_cache_write(io, r_reg_getv(reg, "sp") -2, push, 2);
+	emu_write(gb, r_reg_getv(reg, "sp") -2, push, 2);
 	return r_reg_set_value(reg, r_reg_get(reg, "sp", -1), r_reg_getv(reg, "sp") -2);
 }
 
-int gb_pop(RIO *io, RReg *reg, const char *dest)					//might be weak
+int gb_pop(void *e, RReg *reg, const char *dest)					//might be weak
 {
-	if(!(io && reg && dest))
+	if(!(e && reg && dest))
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 //	if(!(r_reg_getv(reg, "sp")<0xfffc))						//check this please
 //		return R_FALSE;
 	ut16 *regval;
 	ut8 pop[2];
 	regval = (ut16 *)pop;
-	r_io_cache_read(io, r_reg_getv(reg, "sp"), pop, 2);
+	emu_read(gb, r_reg_getv(reg, "sp"), pop, 2);
 	r_reg_set_value(reg, r_reg_get(reg, dest, -1), *regval);
 	return r_reg_set_value(reg, r_reg_get(reg, "sp", -1), r_reg_getv(reg, "sp") +2);
 }
@@ -61,10 +64,11 @@ int gb_ld_store_const(RReg *reg, const char *dest, const ut16 src)
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), src);
 }
 
-int gb_ld_load_to(RIO *io, RReg *reg, const ut16 dest, const char *src)
+int gb_ld_load_to(void *e, RReg *reg, const ut16 dest, const char *src)
 {
-	if(!(io && reg && src))
+	if(!(e && reg && src))
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 buf = r_reg_getv(reg, src);
 	if(dest < 0x8000) {
 		if(dest < 0x4000 && dest > 0x1fff) {
@@ -76,16 +80,17 @@ int gb_ld_load_to(RIO *io, RReg *reg, const ut16 dest, const char *src)
 		}
 		return R_TRUE;
 	}
-	r_io_cache_write(io, dest, &buf, 1);
+	emu_write(gb, dest, &buf, 1);
 	return R_TRUE;
 }
 
-int gb_ld_store_from(RIO *io, RReg *reg, const char *dest, const ut16 src)
+int gb_ld_store_from(void *e, RReg *reg, const char *dest, ut16 src)
 {
-	if(!io)
+	if(!e)
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 buf;
-	r_io_cache_read(io, src, &buf, 1);
+	emu_read(gb, src, &buf, 1);
 	return gb_ld_store_const(reg, dest, buf);
 }
 
@@ -115,10 +120,11 @@ int gb_add_8(RReg *reg, const char *src)
 	return ret;
 }
 
-int gb_add_8_at(RIO *io, RReg *reg, const ut16 src)
+int gb_add_8_at(void *e, RReg *reg, const ut16 src)
 {
+	GBemu *gb = (GBemu*) e;
 	ut8 dval;
-	r_io_cache_read(io, src, &dval, 1);
+	emu_read(gb, src, &dval, 1);
 	int ret = r_reg_set_value(reg, r_reg_get(reg, "a", -1), r_reg_getv(reg, "a") + dval);
 	if( r_reg_getv(reg, "a"))
 		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
@@ -206,12 +212,13 @@ int gb_and(RReg *reg, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, "a", -1), dval);
 }
 
-int gb_and_at(RIO *io, RReg *reg, const ut16 src)
+int gb_and_at(void *e, RReg *reg, const ut16 src)
 {
-	if(!(io && reg))
+	if(!(e && reg))
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 dval;
-	r_io_cache_read(io, src, &dval, 1);
+	emu_read(gb, src, &dval, 1);
 	dval = r_reg_getv(reg, "a") & dval;
 	if(dval)
 		r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
@@ -248,14 +255,15 @@ int gb_swap(RReg *reg, const char *dest)
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), (swap>>4) + (swap<<4));
 }
 
-int gb_swap_at(RIO *io, const ut16 dest)
+int gb_swap_at(void *e, const ut16 dest)
 {
-	if((!io) && dest < 0x8000)
+	if((!e) && dest < 0x8000)
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 swap;
-	r_io_cache_read(io, dest, &swap, 1);
+	emu_read(gb, dest, &swap, 1);
 	swap = ((swap>>4) + (swap<<4));
-	r_io_cache_write(io, dest, &swap, 1);
+	emu_write(gb, dest, &swap, 1);
 	return R_TRUE;
 }
 
@@ -268,15 +276,16 @@ int gb_res(RReg *reg, const ut8 arg, const char *dest)
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), dval);
 }
 
-int gb_res_at(RIO *io, const ut8 arg, const ut16 dest)
+int gb_res_at(void *e, const ut8 arg, const ut16 dest)
 {
-	if((!io) || dest < 0x8000)
+	if((!e) || dest < 0x8000)
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 res = 0x1<<arg;
 	ut8 dval;
-	r_io_cache_read(io, dest, &dval, 1);
+	emu_read(gb, dest, &dval, 1);
 	dval = (dval & (~res));
-	r_io_cache_write(io, dest, &dval, 1);
+	emu_write(gb, dest, &dval, 1);
 	return R_TRUE;
 }
 
@@ -289,15 +298,16 @@ int gb_set(RReg *reg, const ut8 arg, const char *dest)
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), dval);
 }
 
-int gb_set_at(RIO *io, const ut8 arg, const ut16 dest)
+int gb_set_at(void *e, const ut8 arg, const ut16 dest)
 {
-	if((!io) || dest < 0x8000)
+	if((!e) || dest < 0x8000)
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 set = 0x1<<arg;
 	ut8 dval;
-	r_io_cache_read(io, dest, &dval, 1);
+	emu_read(gb, dest, &dval, 1);
 	dval = (dval | set);
-	r_io_cache_write(io, dest, &dval, 1);
+	emu_write(gb, dest, &dval, 1);
 	return R_TRUE;
 }
 
@@ -311,13 +321,14 @@ int gb_bit(RReg *reg, const ut8 arg, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
 }
 
-int gb_bit_at(RIO *io, RReg *reg, const ut8 arg, const ut16 src)
+int gb_bit_at(void *e, RReg *reg, const ut8 arg, const ut16 src)
 {
-	if((!(io && reg)) || src < 0x8000)
+	if((!(e && reg)) || src < 0x8000)
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 bit = 0x1<<arg;
 	ut8 sval;
-	r_io_cache_read(io, src, &sval, 1);
+	emu_read(gb, src, &sval, 1);
 	if(sval & bit)
 		return r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_TRUE);
 	return r_reg_set_value(reg, r_reg_get(reg, "Z", -1), R_FALSE);
@@ -335,18 +346,19 @@ int gb_sla(RReg *reg, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, src, -1), dval<<1);
 }
 
-int gb_sla_at(RIO *io, RReg *reg, const ut16 src)
+int gb_sla_at(void *e, RReg *reg, const ut16 src)
 {
-	if(!(io && reg) || src < 0x8000)
+	if(!(e && reg) || src < 0x8000)
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 dval;
-	r_io_cache_read(io, src, &dval, 1);
+	emu_read(gb, src, &dval, 1);
 	if(dval & (0x1<<7))
 		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_TRUE);
 	else
 		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
 	dval = dval<<1;
-	r_io_cache_write(io, src, &dval, 1);
+	emu_write(gb, src, &dval, 1);
 	return R_TRUE;
 }
 
@@ -362,17 +374,18 @@ int gb_srl(RReg *reg, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, src, -1), dval>>1);
 }
 
-int gb_srl_at(RIO *io, RReg *reg, const ut16 src)
+int gb_srl_at(void *e, RReg *reg, const ut16 src)
 {
-	if(!(io && reg) || src < 0x8000)
+	if(!(e && reg) || src < 0x8000)
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 dval;
-	r_io_cache_read(io, src, &dval, 1);
+	emu_read(gb, src, &dval, 1);
 	if (dval & 0x1)
 		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_TRUE);
 	else
 		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
-	r_io_cache_write(io, src, &dval, 1);
+	emu_write(gb, src, &dval, 1);
 	return R_TRUE;
 }
 
@@ -383,14 +396,15 @@ int gb_sra(RReg *reg, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, src, -1), (r_reg_getv(reg, src) | (r_reg_getv(reg, src) & (0x1<<6))<<7));
 }
 
-int gb_sra_at(RIO *io, RReg *reg, const ut16 src)
+int gb_sra_at(void *e, RReg *reg, const ut16 src)
 {
-	if(!gb_srl_at(io, reg, src))
+	if(!gb_srl_at(e, reg, src))
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 dval;
-	r_io_cache_read(io, src, &dval, 1);
+	emu_read(gb, src, &dval, 1);
 	dval = (dval | ((dval & (0x1<<6))<<7));
-	r_io_cache_write(io, src, &dval, 1);
+	emu_write(gb, src, &dval, 1);
 	return R_TRUE;
 }
 
@@ -399,34 +413,23 @@ int gb_rr(RReg *reg, const char *src)
 	if(!(reg && src))
 		return R_FALSE;
 	ut8 dval = r_reg_getv(reg, src);
-	if(r_reg_getv(reg, "C"))
-		gb_set(reg, 7, "a");
-	else
-		gb_res(reg, 7, "a");
-	dval = (dval>>1) + (dval<<7);
-	if(dval & 0x1)
-		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_TRUE);
-	else
-		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
+	ut8 buf = dval & 0x1;
+	dval = dval>>1 + r_reg_getv(reg, "C")<<7;
+	r_reg_set_value(reg, r_reg_get(reg, "C", -1), buf);
 	return r_reg_set_value(reg, r_reg_get(reg, src, -1), dval);
 }
 
-int gb_rr_at(RIO *io, RReg *reg, const ut16 src)
+int gb_rr_at(void *e, RReg *reg, const ut16 src)
 {
-	if(!(io &&reg))
+	if(!(e &&reg))
 		return R_FALSE;
-	ut8 dval;
-	r_io_cache_read(io, src, &dval, 1);
-	if(r_reg_getv(reg, "C"))
-		gb_set(reg, 7, "a");
-	else
-		gb_res(reg, 7, "a");
-	dval = (dval>>1) + (dval<<7);
-	if(dval & 0x1)
-		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_TRUE);
-	else
-		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
-	r_io_cache_write(io, src, &dval, 1);
+	GBemu *gb = (GBemu*) e;
+	ut8 dval, buf;
+	emu_read(gb, src, &dval, 1);
+	buf = dval & 0x1;
+	dval = dval>>1 + r_reg_getv(reg, "C")<<7;
+	r_reg_set_value(reg,r_reg_get(reg, "C", -1), buf);
+	emu_write(gb, src, &dval, 1);
 	return R_TRUE;
 }
 
@@ -447,12 +450,13 @@ int gb_rl(RReg *reg, const char *src)
 	return r_reg_set_value(reg, r_reg_get(reg, src, -1), dval);
 }
 
-int gb_rl_at(RIO *io, RReg *reg, const ut16 src)
+int gb_rl_at(void *e, RReg *reg, const ut16 src)
 {
-	if(!(io &&reg))
+	if(!(e &&reg))
 		return R_FALSE;
+	GBemu *gb = (GBemu*) e;
 	ut8 dval;
-	r_io_cache_read(io, src, &dval, 1);
+	emu_read(gb, src, &dval, 1);
 	if(r_reg_getv(reg, "C"))
 		gb_set(reg, 0, "a");
 	else
@@ -462,7 +466,7 @@ int gb_rl_at(RIO *io, RReg *reg, const ut16 src)
 		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_TRUE);
 	else
 		r_reg_set_value(reg, r_reg_get(reg, "C", -1), R_FALSE);
-	r_io_cache_write(io, src, &dval, 1);
+	emu_write(gb, src, &dval, 1);
 	return R_TRUE;
 }
 
@@ -512,16 +516,16 @@ int gb_jmp_rel_cond(RReg *reg, const char *cond, const st8 dest)
 	return gb_jmp_rel(reg, dest);
 }
 
-int gb_call(RIO *io, RReg *reg, const ut16 dest)
+int gb_call(void *e, RReg *reg, const ut16 dest)
 {
-	if(!gb_push(io, reg, "pc"))
+	if(!gb_push(e, reg, "pc"))
 		return R_FALSE;
 	return gb_jmp(reg, dest);
 }
 
-int gb_call_cond(RIO *io, RReg *reg, const char *cond, const ut16 dest)
+int gb_call_cond(void *e, RReg *reg, const char *cond, const ut16 dest)
 {
-	if(!(io && reg && cond))
+	if(!(e && reg && cond))
 		return R_FALSE;
 	if(cond[0]=='n') {
 		if(r_reg_getv(reg, &cond[1]))
@@ -530,19 +534,19 @@ int gb_call_cond(RIO *io, RReg *reg, const char *cond, const ut16 dest)
 		if(!r_reg_getv(reg, cond))
 			return R_TRUE;
 	}
-	return gb_call(io, reg, dest);
+	return gb_call(e, reg, dest);
 }
 
-int gb_ret(RIO *io, RReg *reg)
+int gb_ret(void *e, RReg *reg)
 {
-	if(!(gb_pop(io, reg, "pc")))
+	if(!(gb_pop(e, reg, "pc")))
 		return R_FALSE;
 	return gb_jmp(reg, r_reg_getv(reg, "pc"));			//I am lazy
 }
 
-int gb_ret_cond(RIO *io, RReg *reg, const char *cond)
+int gb_ret_cond(void *e, RReg *reg, const char *cond)
 {
-	if(!(io && reg && cond))
+	if(!(e && reg && cond))
 		return R_FALSE;
 	if(cond[0]=='n') {
 		if(r_reg_getv(reg, &cond[1]))
@@ -551,10 +555,10 @@ int gb_ret_cond(RIO *io, RReg *reg, const char *cond)
 		if(!r_reg_getv(reg, cond))
 			return R_TRUE;
 	}
-	return gb_ret(io, reg);
+	return gb_ret(e, reg);
 }
 
-int gb_reti(RIO *io, RReg *reg)
+int gb_reti(void *e, RReg *reg)
 {
-	return (gb_ei(reg) && gb_ret(io, reg));
+	return (gb_ei(reg) && gb_ret(e, reg));
 }
