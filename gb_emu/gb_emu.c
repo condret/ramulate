@@ -1,13 +1,14 @@
 /* ramulate - LGPL - Copyright 2013 - condret@runas-racer.com */
 
 #include <gb_emu.h>
-
+#include <gb_ops.h>
 
 GBemu *gb_emu_new()
 {
 	struct gb_emu_t *gb = R_NEW0(GBemu);
 	gb->reg = r_reg_new();
 	gb->io = r_io_new();
+	gb->c = r_cache_new();
 	gb->bin = r_bin_new();
 	gb->a = r_asm_new();
 	gb->op = R_NEW0(RAsmOp);
@@ -19,6 +20,7 @@ void gb_emu_free(GBemu *gb)
 {
 	r_reg_free(gb->reg);
 	r_io_free(gb->io);
+	r_cache_free(gb->c);
 	r_bin_free(gb->bin);
 	r_asm_free(gb->a);
 	r_asm_op_free(gb->op);
@@ -134,6 +136,36 @@ st8 gb_get_mbc(RIO *io)
 	return GB_UMBC;
 }
 
+int emu_read(GBemu *gb, ut64 addr, ut8 *buf, int len)
+{
+	if(!(gb && buf))
+		return R_FALSE;
+	if(gb->c->base > addr + len || gb->c->base + gb->c->len < addr)
+		return r_io_read_at(gb->io, addr, buf, len);
+	if(gb->c->base + gb->c->len < addr + len) {
+		memcpy(buf, gb->c->buf + (addr - gb->c->base), (gb->c->base + gb->c->len) - addr);
+		return r_io_read_at(gb->io, gb->c->base + gb->c->len + 1, buf + ((gb->c->base + gb->c->len) - addr), len - ((gb->c->base + gb->c->len) - addr));
+	}
+	if(gb->c->base > addr) {
+		r_io_read_at(gb->io, addr, buf, gb->c->base - addr);
+		memcpy(buf + (addr - gb->c->base), gb->c->buf, len - (gb->c->base - addr));
+		return R_TRUE;
+	}
+	memcpy(buf, gb->c->buf + addr - gb->c->base, len);
+	return R_TRUE;
+}
+
+int emu_write(GBemu *gb, ut64 addr, ut8 *buf, int len)
+{
+	if(!(gb && buf))
+		return R_FALSE;
+	if((gb->c->base <= addr) && (gb->c->base + gb->c->len >= addr + len)) {
+		memcpy(gb->c->buf + addr - gb->c->base, buf, len);
+		return R_TRUE;
+	}
+	return R_FALSE;								//TODO
+}
+
 int gb_step(GBemu* gb)
 {
 	if(!gb)
@@ -141,9 +173,9 @@ int gb_step(GBemu* gb)
 	int i;
 	ut8 buf[4];
 	if(r_reg_getv(gb->reg, "pc")<0x8000) {
-		r_io_read_at(gb->io, r_reg_getv(gb->reg, "mpc"), buf, 4);
+		emu_read(gb, r_reg_getv(gb->reg, "mpc"), buf, 4);
 	} else {
-		r_io_cache_read(gb->io, r_reg_getv(gb->reg, "pc"), buf, 4);	//stack-execution, ...
+		emu_read(gb, r_reg_getv(gb->reg, "pc"), buf, 4);		//stack-execution, ...
 	}
 	r_asm_set_pc(gb->a, r_reg_getv(gb->reg, "pc"));				//mpc does not really exist
 	r_asm_disassemble(gb->a, gb->op, buf, 4);				//used for arg-parsing and op-size
@@ -179,11 +211,11 @@ int gb_step(GBemu* gb)
 			gb->op->buf_asm[strlen(gb->op->buf_asm)-6] = 0;
 			return gb_jmp_rel_cond(gb->reg, &gb->op->buf_asm[3], (st8)buf[1]);
 		case 0x22:													//ldi
-			if(gb_ld_load_to(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"), "a") && gb_inc(gb->reg, "hl"))
+			if(gb_ld_load_to(gb, gb->reg, r_reg_getv(gb->reg, "hl"), "a") && gb_inc(gb->reg, "hl"))
 				return R_TRUE;
 			break;
 		case 0x2a:													//ldi
-			if(gb_ld_store_from(gb->io, gb->reg, "a", r_reg_getv(gb->reg, "hl")) && gb_inc(gb->reg, "hl"))
+			if(gb_ld_store_from(gb, gb->reg, "a", r_reg_getv(gb->reg, "hl")) && gb_inc(gb->reg, "hl"))
 				return R_TRUE;
 			break;
 		case 0x03:
@@ -199,11 +231,11 @@ int gb_step(GBemu* gb)
 		case 0x3c:
 			return gb_inc(gb->reg, &gb->op->buf_asm[4]);
 		case 0x32:													//ldd
-			if(gb_ld_load_to(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"), "a") && gb_dec(gb->reg, "hl"))
+			if(gb_ld_load_to(gb, gb->reg, r_reg_getv(gb->reg, "hl"), "a") && gb_dec(gb->reg, "hl"))
 				return R_TRUE;
 			break;
 		case 0x3a:													//ldd
-			if(gb_ld_store_from(gb->io, gb->reg, "a", r_reg_getv(gb->reg, "hl")) && gb_dec(gb->reg, "hl"))
+			if(gb_ld_store_from(gb, gb->reg, "a", r_reg_getv(gb->reg, "hl")) && gb_dec(gb->reg, "hl"))
 				return R_TRUE;
 			break;
 		case 0x05:
@@ -280,7 +312,7 @@ int gb_step(GBemu* gb)
 		case 0x87:
 			return gb_add_8(gb->reg, &gb->op->buf_asm[4]);
 		case 0x86:
-			return gb_add_8_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+			return gb_add_8_at(gb, gb->reg, r_reg_getv(gb->reg, "hl"));
 		case 0x88:
 		case 0x89:
 		case 0x8a:
@@ -314,7 +346,7 @@ int gb_step(GBemu* gb)
 		case 0xa7:
 			return gb_and(gb->reg, &gb->op->buf_asm[4]);
 		case 0xa6:
-			return gb_and_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+			return gb_and_at(gb, gb->reg, r_reg_getv(gb->reg, "hl"));
 		case 0xa8:
 		case 0xa9:
 		case 0xaa:
@@ -334,38 +366,40 @@ int gb_step(GBemu* gb)
 			gb->op->buf_asm[strlen(gb->op->buf_asm)-8] = 0;
 			return gb_jmp_cond(gb->reg, &gb->op->buf_asm[3], (buf[2]*0x100)+buf[1]);
 		case 0xcd:
-			return gb_call(gb->io, gb->reg, (buf[2]*0x100)+buf[1]);
+			return gb_call(gb, gb->reg, (buf[2]*0x100)+buf[1]);
 		case 0xc4:
 		case 0xcc:
 		case 0xd4:
 		case 0xdc:
 			gb->op->buf_asm[strlen(gb->op->buf_asm)-8] = 0;
-			return gb_call_cond(gb->io, gb->reg, &gb->op->buf_asm[5], (buf[2]*0x100)+buf[1]);
+			return gb_call_cond(gb, gb->reg, &gb->op->buf_asm[5], (buf[2]*0x100)+buf[1]);
 		case 0xc9:
-			return gb_ret(gb->io, gb->reg);
+			return gb_ret(gb, gb->reg);
 		case 0xd9:
-			return gb_reti(gb->io, gb->reg);
+			return gb_reti(gb, gb->reg);
 		case 0xc0:
 		case 0xc8:
 		case 0xd0:
 		case 0xd8:
-			return gb_ret_cond(gb->io, gb->reg, &gb->op->buf_asm[4]);
+			return gb_ret_cond(gb, gb->reg, &gb->op->buf_asm[4]);
 		case 0xc5:
 		case 0xd5:
 		case 0xe5:
 		case 0xf5:
-			return gb_push(gb->io, gb->reg, &gb->op->buf_asm[5]);
+			return gb_push(gb, gb->reg, &gb->op->buf_asm[5]);
 		case 0xc1:
 		case 0xd1:
 		case 0xe1:
 		case 0xf1:
-			return gb_pop(gb->io, gb->reg, &gb->op->buf_asm[4]);
+			return gb_pop(gb, gb->reg, &gb->op->buf_asm[4]);
 		case 0xe0:
-			return gb_ld_load_to(gb->io, gb->reg, buf[1]+0xff00, "a");
+			return gb_ld_load_to(gb, gb->reg, buf[1]+0xff00, "a");
 		case 0xea:
-			return gb_ld_load_to(gb->io, gb->reg, (buf[2]*0x100)+buf[1], "a");
+			return gb_ld_load_to(gb, gb->reg, (buf[2]*0x100)+buf[1], "a");
 		case 0xf0:
-			return gb_ld_store_from(gb->io, gb->reg, "a", buf[1]+0xff00);
+			if(buf[1] == 0x44)
+				return gb_ld_store_from(gb, gb->reg, "a", 0xff44);
+			return gb_ld_store_from(gb, gb->reg, "a", buf[1]+0xff00);
 		case 0xf3:
 			return gb_di(gb->reg);
 		case 0xfb:
@@ -373,46 +407,46 @@ int gb_step(GBemu* gb)
 		case 0xfe:
 			return gb_cp_const(gb->reg, buf[1]);
 		case 0xc7:
-			return gb_call(gb->io, gb->reg, 0);
+			return gb_call(gb, gb->reg, 0);
 		case 0xcf:
-			return gb_call(gb->io, gb->reg, 8);
+			return gb_call(gb, gb->reg, 8);
 		case 0xd7:
-			return gb_call(gb->io, gb->reg, 16);
+			return gb_call(gb, gb->reg, 16);
 		case 0xdf:
-			return gb_call(gb->io, gb->reg, 24);
+			return gb_call(gb, gb->reg, 24);
 		case 0xe7:
-			return gb_call(gb->io, gb->reg, 32);
+			return gb_call(gb, gb->reg, 32);
 		case 0xef:
-			return gb_call(gb->io, gb->reg, 40);
+			return gb_call(gb, gb->reg, 40);
 		case 0xf7:
-			return gb_call(gb->io, gb->reg, 48);
+			return gb_call(gb, gb->reg, 48);
 		case 0xff:
-			return gb_call(gb->io, gb->reg, 56);
+			return gb_call(gb, gb->reg, 56);
 		case 0xcb:
 			switch(buf[1]/8) {
 				case 2:
 					if(buf[1]%8 == 6)
-						return gb_rl_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+						return gb_rl_at(gb, gb->reg, r_reg_getv(gb->reg, "hl"));
 					return gb_rl(gb->reg, &gb->op->buf_asm[3]);
 				case 3:
 					if(buf[1]%8 == 6)
-						return gb_rr_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+						return gb_rr_at(gb, gb->reg, r_reg_getv(gb->reg, "hl"));
 					return gb_rr(gb->reg, &gb->op->buf_asm[3]);
 				case 4:
 					if(buf[1]%8 == 6)
-						return gb_sla_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+						return gb_sla_at(gb, gb->reg, r_reg_getv(gb->reg, "hl"));
 					return gb_sla(gb->reg, &gb->op->buf_asm[4]);
 				case 5:
 					if(buf[1]%8 == 6)
-						return gb_sra_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+						return gb_sra_at(gb, gb->reg, r_reg_getv(gb->reg, "hl"));
 					return gb_sra(gb->reg, &gb->op->buf_asm[4]);
 				case 6:
 					if(buf[1]%8 == 6)
-						return gb_swap_at(gb->io, r_reg_getv(gb->reg, "hl"));
+						return gb_swap_at(gb, r_reg_getv(gb->reg, "hl"));
 					return gb_swap(gb->reg, &gb->op->buf_asm[5]);
 				case 7:
 					if(buf[1]%8 == 6)
-						return gb_srl_at(gb->io, gb->reg, r_reg_getv(gb->reg, "hl"));
+						return gb_srl_at(gb, gb->reg, r_reg_getv(gb->reg, "hl"));
 					return gb_srl(gb->reg, &gb->op->buf_asm[4]);
 				case 8:
 				case 9:
@@ -423,7 +457,7 @@ int gb_step(GBemu* gb)
 				case 14:
 				case 15:
 					if(buf[1]%8 == 6)
-						return gb_bit_at(gb->io, gb->reg, (buf[1]/8)-8, r_reg_getv(gb->reg, "hl"));
+						return gb_bit_at(gb, gb->reg, (buf[1]/8)-8, r_reg_getv(gb->reg, "hl"));
 					return gb_bit(gb->reg, (buf[1]/8)-8, &gb->op->buf_asm[7]);
 				case 16:
 				case 17:
@@ -434,7 +468,7 @@ int gb_step(GBemu* gb)
 				case 22:
 				case 23:
 					if(buf[1]%8 == 6)
-						return gb_res_at(gb->io, (buf[1]/8)-16, r_reg_getv(gb->reg, "hl"));
+						return gb_res_at(gb, (buf[1]/8)-16, r_reg_getv(gb->reg, "hl"));
 					return gb_res(gb->reg, (buf[1]/8)-16, &gb->op->buf_asm[7]);
 				case 24:
 				case 25:
@@ -445,7 +479,7 @@ int gb_step(GBemu* gb)
 				case 30:
 				case 31:
 					if(buf[1]%8 == 6)
-						return gb_set_at(gb->io, (buf[1]/8)-24, r_reg_getv(gb->reg, "hl"));
+						return gb_set_at(gb, (buf[1]/8)-24, r_reg_getv(gb->reg, "hl"));
 					return gb_set(gb->reg, (buf[1]/8)-24, &gb->op->buf_asm[7]);
 			}
 	}
