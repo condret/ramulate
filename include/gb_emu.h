@@ -3,6 +3,7 @@
 #include <r_reg.h>
 #include <r_bin.h>
 #include <r_io.h>
+#include <r_util.h>
 #include <r_asm.h>
 #include <r_list.h>
 #include <string.h>
@@ -27,6 +28,7 @@ typedef struct gb_mbc_t {
 typedef struct gb_emu_t {
 	RReg *reg;
 	RIO *io;
+	RCache *c;
 	RBin *bin;
 	RAsm *a;
 	RAsmOp *op;
@@ -46,6 +48,9 @@ void gb_sections(RIO *io, RBin *bin);
 int gb_reg_profile(GBemu *gb);
 st8 gb_get_mbc(RIO *io);
 
+// special io (for ram, hardware, ...) -> usage like r_io_read_at / r_io_write_at
+int emu_read(GBemu *gb, ut64 addr, ut8 *buf, int len);
+int emu_write(GBemu *gb, ut64 addr, ut8 *buf, int len);
 // testing area
 void show_regs(struct r_reg_t *reg, int bitsize);
 
