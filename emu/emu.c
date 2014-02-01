@@ -22,6 +22,12 @@ void emu_free(emu *e)
 	r_io_free(e->io);
 	r_asm_free(e->a);
 	r_asm_op_free(e->op);
+	if(e->vsections) {
+		RListIter *iter;
+		VSection *vs;
+		r_list_foreach(e->vsections, iter, vs)
+			virtual_section_rm_i(e, vs->id);
+	}
 	r_list_free(e->vsections);
 	free(e);
 }
