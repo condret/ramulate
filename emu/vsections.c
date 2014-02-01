@@ -73,6 +73,39 @@ VSection *virtual_section_get_i(emu *e, int idx)
 	return NULL;
 }
 
+VSection *virtual_section_get_next_to_addr(emu *e, ut64 addr)
+{
+	if(!e || !e->vsections)
+		return NULL;
+	RListIter *iter;
+	VSection *vs, *vsd;
+	vsd = NULL;
+	ut64 delta = 0xffffffffffffff;
+	r_list_foreach(e->vsections, iter, vs) {
+		if(vs->addr > addr && (vs->addr-addr) < delta) {
+			vsd = vs;
+			delta = vs->addr - addr;
+		}
+	}
+	return vsd;
+}
+
+VSection *virtual_section_get_prev_to_addr(emu *e, ut64 addr)
+{
+	if(!e || !e->vsections)
+		return NULL;
+	RListIter *iter;
+	VSection *vs, *vsd;
+	vsd = NULL;
+	ut64 delta = 0xffffffffffffff;
+	r_list_foreach(e->vsections, iter, vs) {
+		if(vs->addr < addr && (addr - vs->addr) < delta) {
+			vsd = vs;
+			delta = addr - vs->addr;
+		}
+	}
+	return vsd;
+}
 
 int virtual_section_rm_i(emu *e, int idx)
 {
