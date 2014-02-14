@@ -1,7 +1,10 @@
 #include <r_reg.h>
 #include <r_io.h>
+#include <r_bin.h>
 #include <r_list.h>
+#include <r_lib.h>
 #include <r_asm.h>
+#include <r_anal.h>
 #include <r_types.h>
 
 typedef struct virtual_section_t {
@@ -18,14 +21,51 @@ typedef struct virtual_section_t {
 typedef struct emu_t {
 	RReg *reg;
 	RIO *io;
+	RBin *bin;
+	RLib *lib;
 	RList *vsections;
 	ut32 next_vs_id;
-//	RList *inverse;		<-- this will enable backwards-execution
+	RList *plugins;
+	struct emu_plugin_t *plugin;
 	RAsm *a;
 	RAsmOp *op;
-	void *data;		//<-- storage for arch-specific info, such as mbc-type : must be freed manually
+	RAnal *anal;
+	RAnalOp *anop;
+	void *data;
 } emu;
 
+enum {
+	EMU_PLUGIN_DEP_NONE = 0,
+	EMU_PLUGIN_DEP_ASM,
+	EMU_PLUGIN_DEP_ANAL
+};
+
+#if 0
+typedef struct emu_inverse_op_t {
+	ut64 old_pc;
+	int (*inv_step)(emu *e, void *data);
+	char *inv_asm;
+	void *data;
+} EInvOp;
+#endif
+
+#define RAMULATE_EMU_PLUGIN	42
+#define RAMULATE_SCREEN_PLUGIN	23
+
+typedef struct emu_plugin_t {
+	char *arch;
+	char *desc;
+	char *license;
+	ut8 deps;
+	ut8 min_read_sz;
+	int (*step)(struct emu_t *e, ut8 *buf);
+	int (*set_vs_profile)(struct emu_t *e);
+	int (*set_reg_profile)(struct emu_t *e);
+	int (*read)(struct emu_t *e, ut64 addr, ut8 *buf, int size);
+	int (*handle_user_input)(struct emu_t *e, char input);
+	void (*allocate_data)(struct emu_t *e);
+	void (*free_data)(void *data);
+} EPlugin;
 
 #define	VS_MAX_NAME_LEN	63
 
@@ -35,6 +75,15 @@ enum {
 	VS_HAS_LINKED
 };
 
+enum {
+	VS_LIST_ID = 0x1,
+	VS_LIST_NAME,
+	VS_LIST_ADDR = (0x1<<2),
+	VS_LIST_SIZE = (0x1<<3),
+	VS_LIST_PERM = (0x1<<4),
+	VS_LIST_LINK = (0x1<<5),
+	VS_LIST_ALL = (0x1<<6)-1
+};
 
 /* --- emu/emu.c --- */
 emu *emu_new();
@@ -60,11 +109,19 @@ inline int virtual_section_unlink_has_linked(emu *e, VSection *vs, ut64 size);
 inline int virtual_section_unlink_is_linked(emu *e, VSection *vs, ut64 size);
 int virtual_section_unlink(emu *e, VSection *vs);
 VSection *virtual_section_resolve_link(emu *e, VSection *vs_src);
+int virtual_section_list(emu *e, int mode);
 //int virtual_section_split(emu *e, ut64 addr, int id);			TODO
 /* --- emu/vsection.c --- */
-
 
 /* --- emu/e_io.c --- */
 int emu_read(emu *e, ut64 addr, ut8 *buf, ut64 len);
 int emu_write(emu *e, ut64 addr, ut8 *buf, ut64 len);
 /* --- emu/e_io.c --- */
+
+/* --- emu/plugins.c --- */
+int emu_add(emu *e, EPlugin *p);
+int emu_use(emu *e, char *arch);
+void emu_list_plugins(emu *e);
+int emu_plugin_cb(struct r_lib_plugin_t *p, void *a, void *b);
+int emu_plugin_cb_end(struct r_lib_plugin_t *p, void *a, void *b);
+/* --- emu/plugins.c --- */
