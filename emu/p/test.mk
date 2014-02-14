@@ -1,0 +1,7 @@
+TARGET_TEST=emu_test.so
+ALL_TARGETS+=${TARGET_TEST}
+
+${TARGET_TEST}:
+	${CC} ${CFLAGS} ${LDFLAGS} emu_test.c ${LIBFLAGS} -o ${TARGET_TEST}
+
+.PHONY: ${TARGET_TEST}
