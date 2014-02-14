@@ -3,7 +3,7 @@
 #include <string.h>
 #include <r_list.h>
 #include <r_types.h>
-//#include <r_utils.h>
+#include <stdio.h>
 
 int virtual_section_add(emu *e, ut64 addr, ut64 size, int rwx, const char *name)
 {
@@ -290,4 +290,24 @@ VSection *virtual_section_resolve_link(emu *e, VSection *vs_src)
 		"link-destination was unusually removed\n",
 		vs_src->name);
 	return NULL;
+}
+
+int virtual_section_list(emu *e, int mode)
+{
+	VSection *vs;
+	RListIter *iter;
+	if (!e->vsections)
+		return R_FALSE;
+	r_list_foreach(e->vsections, iter, vs) {
+		if (mode & VS_LIST_ID)
+			printf("[%d]\t", vs->id);
+		if (mode & VS_LIST_NAME)
+			printf("[%s]\t", vs->name);
+		if (mode & VS_LIST_ADDR)
+			printf("addr: 0x%08"PFMT64x"\t", vs->addr);
+		if (mode & VS_LIST_SIZE)
+			printf("size: 0x%08"PFMT64x, vs->size);
+		printf("\n");								//TODO: VS_LIST_LINK
+	}
+	return R_TRUE;
 }
