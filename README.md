@@ -1,7 +1,7 @@
 ramulate
 ========
 
-this will be an emulator for several video-game-consoles, depending on the radare2-api and allegro.
+this will be an emulator for several video-game-consoles, depending on the radare2-api.
 This will emulate these archs:
 
 
@@ -26,5 +26,6 @@ sms-z80
 
 snes
 
+and much more
 
 A lot of things need be to done
