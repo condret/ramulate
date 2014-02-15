@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
 {
 	emu *e;
 	ut8 *buf;
+	ut32 c = 0;
 	if (argc<2) {
 		eprintf ("Which rom?\n");
 		return R_FALSE;
@@ -92,7 +93,7 @@ int main(int argc, char *argv[])
 	else	buf = malloc (sizeof(int));							//LOOOOOOOOOL :D :D :D
 
 	if (e->plugin->step)
-		emulation (e, buf);
+		while ( c < 10 && emulation (e, buf)) c++;
 	else printf ("cannot emulate, please check that plugin\n");
 
 	free (buf);
@@ -120,6 +121,7 @@ inline void set_sections(RIO *io, RBin *bin)
 static int emulation (emu *e, ut8 *buf)
 {
 	ut64 addr = r_reg_getv (e->reg, r_reg_get_name (e->reg, R_REG_NAME_PC));		//Check Breakboints here: new return stat for that
+	printf ("<0x%08"PFMT64x"> ", addr);
 	if (e->plugin->read) {
 		if (e->plugin->min_read_sz)
 			e->plugin->read (e, addr, buf, e->plugin->min_read_sz);
@@ -135,6 +137,7 @@ static int emulation (emu *e, ut8 *buf)
 		if (e->plugin->min_read_sz)
 			r_asm_disassemble (e->a, e->op, buf, e->plugin->min_read_sz);
 		else	r_asm_disassemble (e->a, e->op, buf, sizeof(int));
+		printf ("%s", e->op->buf_asm);
 	}
 
 	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL) {						//only analize if it is necessary
@@ -142,6 +145,8 @@ static int emulation (emu *e, ut8 *buf)
 			r_anal_op (e->anal, e->anop, addr, buf, e->plugin->min_read_sz);
 		else	r_anal_op (e->anal, e->anop, addr, buf, sizeof(int));
 	}
+
+	printf ("\n");
 
 	return e->plugin->step (e, buf);
 }
