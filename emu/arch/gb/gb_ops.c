@@ -1,4 +1,4 @@
-/* ramulate - LGPL - Copyright 2013 - condret@runas-racer.com */
+/* ramulate - LGPL - Copyright 2013 - 2014 - condret@runas-racer.com */
 
 #include <emu.h>
 #include <gb.h>
@@ -32,7 +32,6 @@ int gb_pop(emu *e, RReg *reg, const char *dest)					//might be weak
 	ut8 pop[2];
 	regval = (ut16 *)pop;
 	gb_read(e, r_reg_getv(reg, "sp"), pop, 2);
-	eprintf("0x%04x\n", r_reg_getv(reg, "sp"));
 	r_reg_set_value(reg, r_reg_get(reg, dest, -1), *regval);
 	return r_reg_set_value(reg, r_reg_get(reg, "sp", -1), r_reg_getv(reg, "sp") +2);
 }
@@ -80,17 +79,14 @@ int gb_ld_load_to(emu *e, RReg *reg, const ut16 dest, const char *src)
 		return R_FALSE;
 
 	ut8 buf = r_reg_getv(reg, src);
-/*	if(dest < 0x8000) {
-		if(dest < 0x4000 && dest > 0x1fff) {
-			if(buf == 0x20 || buf == 0x40 || buf == 0x60)
-				return r_reg_set_value(reg, r_reg_get(reg, "mbc", -1), 0);
-			if(buf)
-				return r_reg_set_value(reg, r_reg_get(reg, "mbc", -1), buf - 1);
-			return r_reg_set_value(reg, r_reg_get(reg, "mbc", -1), buf);
-		}
-		return R_TRUE;
-	}	*/
-	gb_write(e, dest, &buf, 1);
+/*	if(dest < 0x4000 && dest > 0x1fff) {
+		if(buf == 0x20 || buf == 0x40 || buf == 0x60)
+			return r_reg_set_value(reg, r_reg_get(reg, "mbcrom", -1), 0);
+		if(buf)
+			return r_reg_set_value(reg, r_reg_get(reg, "mbcrom", -1), buf - 1);
+		return r_reg_set_value(reg, r_reg_get(reg, "mbcrom", -1), buf);
+	}
+*/	gb_write(e, dest, &buf, 1);
 	return R_TRUE;
 }
 
