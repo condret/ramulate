@@ -1,3 +1,6 @@
+#ifndef EMU_H
+#define EMU_H
+
 #include <r_reg.h>
 #include <r_io.h>
 #include <r_bin.h>
@@ -41,6 +44,13 @@ enum {
 };
 
 #if 0
+typedef struct emu_screen_t {			//for internal representation of screen-data
+	sdb *pixels;
+	ut32 x;
+	ut32 y;
+} EScreen;
+
+
 typedef struct emu_inverse_op_t {
 	ut64 old_pc;
 	int (*inv_step)(emu *e, void *data);
@@ -125,3 +135,6 @@ void emu_list_plugins(emu *e);
 int emu_plugin_cb(struct r_lib_plugin_t *p, void *a, void *b);
 int emu_plugin_cb_end(struct r_lib_plugin_t *p, void *a, void *b);
 /* --- emu/plugins.c --- */
+
+
+#endif
