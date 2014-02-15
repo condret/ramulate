@@ -1,4 +1,4 @@
-/* ramulate - LGPL - Copyright 2013 - 2014 - condret@runas-racer.com */
+/* ramulate - LGPL - Copyright 2013 - condret@runas-racer.com */
 
 #include <emu.h>
 #include <gb.h>
@@ -64,7 +64,7 @@ int gb_ld_store_const(RReg *reg, const char *dest, const ut16 src)
 	return r_reg_set_value(reg, r_reg_get(reg, dest, -1), src);
 }
 
-int gb_ld_load_const_to(emu *e, const ut16 dest, const ut8 src)
+int gb_ld_load_const_to(emu *e, const ut16 dest, ut8 src)
 {
 	if(!e)
 		return R_FALSE;
