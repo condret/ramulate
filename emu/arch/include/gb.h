@@ -1,4 +1,7 @@
 /* ramulate - LGPL - Copyright 2013 - 2014 - condret@runas-racer.com */
+#ifndef EMU_GB_H
+#define EMU_GB_H
+
 #include <emu.h>
 #include <r_io.h>
 #include <r_reg.h>
@@ -60,7 +63,7 @@ int gb_di(RReg *reg);
 int gb_ld_mov(RReg *reg, const char *dest, const char *src);
 int gb_ld_store_const(RReg *reg, const char *dest, const ut16 src);
 int gb_ld_load_to(emu *e, RReg *reg, const ut16 dest, const char *src);
-int gb_ld_load_const_to(emu *e, const ut16 dest, const ut8 src);
+int gb_ld_load_const_to(emu *e, const ut16 dest, ut8 src);
 int gb_ld_store_from(emu *e, RReg *reg, const char *dest, ut16 src);
 
 int gb_inc(RReg *reg, const char *dest);
@@ -122,3 +125,5 @@ int gb_call_cond(emu *e, RReg *reg, const char *cond, const ut16 dest);
 int gb_ret(emu *e, RReg *ret);
 int gb_ret_cond(emu *e, RReg *reg, const char *cond);
 int gb_reti(emu *e, RReg *reg);
+
+#endif
