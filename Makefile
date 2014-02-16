@@ -17,8 +17,8 @@ lib: $(LOBJ)
 emu.o: emu/emu.c
 	$(CC) -fPIC $(CFLAGS) -c emu/emu.c
 
-vsection.o: emu/vsection.c
-	$(CC) -fPIC $(CFLAGS) -c emu/vsection.c
+vsections.o: emu/vsections.c
+	$(CC) -fPIC $(CFLAGS) -c emu/vsections.c
 
 e_io.o: emu/e_io.c
 	$(CC) -fPIC $(CFLAGS) -c emu/e_io.c
