@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = $(shell pkg-config --cflags r_reg r_io r_asm r_bin r_anal r_util) -I./include -Wall -g
 LDFLAGS = $(shell pkg-config --libs r_reg r_io r_asm r_bin r_anal r_util) -L./ -l emu
 LIBFLAGS = -shared -Wl,-soname,
-LOBJ = emu.o vsection.o e_io.o plugins.o
+LOBJ = emu.o vsections.o e_io.o plugins.o
 LIB0 = lib
 
 all: ramulate
