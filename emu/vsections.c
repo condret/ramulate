@@ -41,7 +41,7 @@ VSection *virtual_section_get_addr(emu *e, ut64 addr)
 	RListIter *iter;
 	VSection *vs;
 	r_list_foreach (e->vsections, iter, vs) {
-		if( (vs->addr <= addr) && (addr <= (vs->addr + vs->size)))
+		if( (vs->addr <= addr) && (addr < (vs->addr + vs->size)))
 			return vs;
 	}
 	return NULL;
