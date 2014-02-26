@@ -8,6 +8,7 @@
 #include <r_util.h>
 #include <r_anal.h>
 #include <emu.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -18,13 +19,36 @@ int main(int argc, char *argv[])
 {
 	emu *e;
 	ut8 *buf;
+	char *file = NULL, *arch = NULL;
+	int opt;
 	ut32 c = 0;
-	if (argc<2) {
-		eprintf ("Which rom?\n");
+	switch (argc) {
+		case 1:
+			break;
+		case 2:
+			file = argv[1];
+			break;
+		default:
+			while ((opt = getopt(argc, argv, "a:f:")) != -1) {
+				switch (opt) {
+					case 'a':
+						arch = optarg;
+						break;
+					case 'f':
+						file = optarg;
+						break;
+				}
+			}
+			break;
+	}
+
+	if (!file) {
+		eprintf ("Which file\n");
 		return R_FALSE;
 	}
+
 	e = emu_new();
-	e->io->fd = r_io_open (e->io, argv[1], R_IO_READ, 0);
+	e->io->fd = r_io_open (e->io, file, R_IO_READ, 0);
 	if (!e->io->fd) {
 		eprintf ("Wrong Path\n");
 		emu_free(e);
@@ -32,20 +56,21 @@ int main(int argc, char *argv[])
 	}
 
 	r_bin_load (e->bin, argv[1], 0, 0, 0);
-	if (!e->bin->cur->o->info) {
+	if (!e->bin->cur->o->info && !arch) {
 		eprintf("No such bin plugin\n");
 		r_io_close (e->io, e->io->fd);
 		emu_free(e);
 		return R_FALSE;
 	}
 
+	if (!arch)
+		arch = e->bin->cur->o->info->arch;
+
 	r_lib_opendir (e->lib, "/lib/ramulate");
-	emu_use (e, e->bin->cur->o->info->arch);
+	emu_use (e, arch);
 
 	if(!e->plugin) {
-		eprintf ("No such emu plugin for %s/%s\nBut we have these:\n",
-				e->bin->cur->o->info->arch,
-				e->bin->cur->o->info->machine);
+		eprintf ("No such emu plugin for %s\nBut we have these:\n", arch);
 		emu_list_plugins (e);
 		emu_free(e);
 		return R_FALSE;
@@ -93,14 +118,17 @@ int main(int argc, char *argv[])
 	else	buf = malloc (sizeof(int));							//LOOOOOOOOOL :D :D :D
 
 	if (e->plugin->step)
-		while ( c < 10 && emulation (e, buf)) c++;
+		while ( c < 10000 && emulation (e, buf)) c++;
 	else printf ("cannot emulate, please check that plugin\n");
+
 
 	free (buf);
 
 	if (e->plugin->allocate_data && e->plugin->free_data)
 		e->plugin->free_data (e->data);
 	r_io_close (e->io, e->io->fd);
+
+	printf("%s\n", virtual_section_get_addr(e, 0xe000)->name);
 	emu_free (e);
 	return R_TRUE;
 }
@@ -121,7 +149,6 @@ inline void set_sections(RIO *io, RBin *bin)
 static int emulation (emu *e, ut8 *buf)
 {
 	ut64 addr = r_reg_getv (e->reg, r_reg_get_name (e->reg, R_REG_NAME_PC));		//Check Breakboints here: new return stat for that
-	printf ("<0x%08"PFMT64x"> ", addr);
 	if (e->plugin->read) {
 		if (e->plugin->min_read_sz)
 			e->plugin->read (e, addr, buf, e->plugin->min_read_sz);
@@ -137,7 +164,6 @@ static int emulation (emu *e, ut8 *buf)
 		if (e->plugin->min_read_sz)
 			r_asm_disassemble (e->a, e->op, buf, e->plugin->min_read_sz);
 		else	r_asm_disassemble (e->a, e->op, buf, sizeof(int));
-		printf ("%s", e->op->buf_asm);
 	}
 
 	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL) {						//only analize if it is necessary
@@ -145,8 +171,6 @@ static int emulation (emu *e, ut8 *buf)
 			r_anal_op (e->anal, e->anop, addr, buf, e->plugin->min_read_sz);
 		else	r_anal_op (e->anal, e->anop, addr, buf, sizeof(int));
 	}
-
-	printf ("\n");
 
 	return e->plugin->step (e, buf);
 }
