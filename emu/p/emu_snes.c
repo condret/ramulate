@@ -7,6 +7,7 @@ EPlugin snes_emu = {
 	.license = "LGPL3",
 	.deps = (EMU_PLUGIN_DEP_ASM | EMU_PLUGIN_DEP_ANAL),
 	.min_read_sz = 10,
+	.screen = NULL,
 	.step = NULL,
 	.set_vs_profile = NULL,
 	.set_reg_profile = NULL,
