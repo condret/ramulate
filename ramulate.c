@@ -8,7 +8,7 @@
 #include <r_util.h>
 #include <r_anal.h>
 #include <emu.h>
-#include <unistd.h>
+#include <screen.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -117,6 +117,9 @@ int main(int argc, char *argv[])
 		buf = malloc (e->plugin->min_read_sz);
 	else	buf = malloc (sizeof(int));							//LOOOOOOOOOL :D :D :D
 
+	if (e->plugin->screen)
+		e->screen = sdb_screen_new (e->plugin->screen);
+
 	if (e->plugin->step)
 		while ( c < 10000 && emulation (e, buf)) c++;
 	else printf ("cannot emulate, please check that plugin\n");
@@ -128,11 +131,9 @@ int main(int argc, char *argv[])
 		e->plugin->free_data (e->data);
 	r_io_close (e->io, e->io->fd);
 
-	printf("%s\n", virtual_section_get_addr(e, 0xe000)->name);
 	emu_free (e);
 	return R_TRUE;
 }
-
 
 inline void set_sections(RIO *io, RBin *bin)
 {
@@ -148,6 +149,7 @@ inline void set_sections(RIO *io, RBin *bin)
 
 static int emulation (emu *e, ut8 *buf)
 {
+	int ret;
 	ut64 addr = r_reg_getv (e->reg, r_reg_get_name (e->reg, R_REG_NAME_PC));		//Check Breakboints here: new return stat for that
 	if (e->plugin->read) {
 		if (e->plugin->min_read_sz)
@@ -172,5 +174,10 @@ static int emulation (emu *e, ut8 *buf)
 		else	r_anal_op (e->anal, e->anop, addr, buf, sizeof(int));
 	}
 
-	return e->plugin->step (e, buf);
+	ret = e->plugin->step (e, buf);
+
+	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL)						// do this for RAnalValue
+		r_anal_op_fini (e->anop);
+
+	return ret;
 }
