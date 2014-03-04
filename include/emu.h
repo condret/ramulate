@@ -9,6 +9,8 @@
 #include <r_asm.h>
 #include <r_anal.h>
 #include <r_types.h>
+#include <sdb.h>
+#include <screen.h>
 
 typedef struct virtual_section_t {
 	char name[64];
@@ -34,6 +36,7 @@ typedef struct emu_t {
 	RAsmOp *op;
 	RAnal *anal;
 	RAnalOp *anop;
+	Sdb *screen;
 	void *data;
 } emu;
 
@@ -43,24 +46,8 @@ enum {
 	EMU_PLUGIN_DEP_ANAL
 };
 
-#if 0
-typedef struct emu_screen_t {			//for internal representation of screen-data
-	sdb *pixels;
-	ut32 x;
-	ut32 y;
-} EScreen;
-
-
-typedef struct emu_inverse_op_t {
-	ut64 old_pc;
-	int (*inv_step)(emu *e, void *data);
-	char *inv_asm;
-	void *data;
-} EInvOp;
-#endif
-
 #define RAMULATE_EMU_PLUGIN	42
-#define RAMULATE_SCREEN_PLUGIN	23
+//#define RAMULATE_SCREEN_PLUGIN	23	do we need this?
 
 typedef struct emu_plugin_t {
 	char *arch;
@@ -68,6 +55,7 @@ typedef struct emu_plugin_t {
 	char *license;
 	ut8 deps;
 	ut8 min_read_sz;
+	SdbScreenDesc *screen;
 	int (*step)(struct emu_t *e, ut8 *buf);
 	int (*set_vs_profile)(struct emu_t *e);
 	int (*set_reg_profile)(struct emu_t *e);
