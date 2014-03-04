@@ -6,6 +6,7 @@
 #include <r_util.h>
 #include <r_anal.h>
 #include <r_lib.h>
+#include <sdb.h>
 
 emu *emu_new()
 {
@@ -20,6 +21,7 @@ emu *emu_new()
 	e->anal = r_anal_new();
 	e->anop = r_anal_op_new();
 	e->next_vs_id = 0;
+	e->screen = NULL;
 	r_lib_add_handler(e->lib, RAMULATE_EMU_PLUGIN, "emulation plugin handler", &emu_plugin_cb, &emu_plugin_cb_end, e);
 	return e;
 }
@@ -37,12 +39,13 @@ void emu_free(emu *e)
 	r_asm_op_free(e->op);
 	r_anal_op_free(e->anop);
 	r_anal_free(e->anal);
-	if(e->vsections) {
+	if (e->vsections) {
 		RListIter *iter;
 		VSection *vs;
 		r_list_foreach(e->vsections, iter, vs)
 			virtual_section_rm_i(e, vs->id);
 	}
 	r_list_free(e->vsections);
+	if (e->screen) sdb_free (e->screen);
 	free(e);
 }
