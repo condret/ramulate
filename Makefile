@@ -1,15 +1,15 @@
 CC = gcc
-CFLAGS = $(shell pkg-config --cflags r_reg r_io r_asm r_bin r_anal r_util) -I./include -Wall -g
-LDFLAGS = $(shell pkg-config --libs r_reg r_io r_asm r_bin r_anal r_util) -L./ -l emu
+CFLAGS = $(shell pkg-config --cflags r_reg r_io r_asm r_bin r_anal r_util sdb) -I./include -Wall -g
+LDFLAGS = $(shell pkg-config --libs r_reg r_io r_asm r_bin r_anal r_util sdb) -L./ -l emu
 LIBFLAGS = -shared -Wl,-soname,
-LOBJ = emu.o vsections.o e_io.o plugins.o
+LOBJ = emu.o vsection.o e_io.o screen.o plugins.o
 LIB0 = lib
 
 all: ramulate
 	make -C emu/p/ -f plugins.mk plugin
 
 ramulate: $(LIB0)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o ramulate ramulate.c $(OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o ramulate ramulate.c $(OBJ) -O3
 
 lib: $(LOBJ)
 	$(CC) $(LIBFLAGS) $(LOBJ) -o libemu.so
@@ -22,6 +22,9 @@ vsections.o: emu/vsections.c
 
 e_io.o: emu/e_io.c
 	$(CC) -fPIC $(CFLAGS) -c emu/e_io.c
+
+screen.o: screen/screen.c
+	$(CC) -fPIC $(CFLAGS) -c screen/screen.c
 
 plugins.o: emu/plugins.c
 	$(CC) -fPIC $(CFLAGS) -c emu/plugins.c
