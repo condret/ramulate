@@ -7,6 +7,7 @@ EPlugin dummy = {
 	.license = "LGPL3",
 	.deps = EMU_PLUGIN_DEP_NONE,
 	.min_read_sz = 42,
+	.screen = NULL,
 	.step = NULL,
 	.set_vs_profile = NULL,
 	.set_reg_profile = NULL,
