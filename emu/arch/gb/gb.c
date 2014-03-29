@@ -1,4 +1,4 @@
-/* ramulate - LGPL - Copyright 2013 - condret@runas-racer.com */
+/* ramulate - LGPL - Copyright 2013 - 2014 - condret@runas-racer.com */
 
 #include <emu.h>
 #include <gb.h>
@@ -7,11 +7,35 @@
 #include <r_io.h>
 #include <r_anal.h>
 
-void gb_mbc_new(emu *e)
+GBmbc *gb_mbc_new(emu *e)
 {
 	GBmbc *mbc = R_NEW0(GBmbc);
 	gb_get_mbc(e->io, mbc);
-	e->data = mbc;
+	return mbc;
+}
+
+GBCpuStats *gb_cpu_stats_new (emu *e)
+{
+	GBCpuStats *cpu = R_NEW0 (GBCpuStats);
+	cpu->mbc = gb_mbc_new (e);
+	return cpu;
+}
+
+void gb_data_new (emu *e)
+{
+	GBCpuStats *cpu = gb_cpu_stats_new (e);
+	e->data = cpu;
+}
+
+void gb_cpu_stats_free (GBCpuStats *cpu) {
+	gb_mbc_free (cpu->mbc);
+	free (cpu);
+}
+
+void gb_data_free (void *data)
+{
+	GBCpuStats *cpu = (GBCpuStats *)data;
+	gb_cpu_stats_free (cpu);
 }
 
 int gb_set_vs_profile(emu *e)										//we need a parser here in /emu/vsection.c
@@ -23,13 +47,12 @@ int gb_set_vs_profile(emu *e)										//we need a parser here in /emu/vsection.
 	virtual_section_add(e, 0xff00, 0x4c, 7, "IO-Ports");
 	virtual_section_add(e, 0xff80, 0x7e, 7, "zram");
 	virtual_section_add(e, 0xffff, 1, 7, "ie-flg");
-	GBmbc *mbc;
-	mbc = (GBmbc *) e->data;
+	GBCpuStats *cpu;
+	cpu = (GBCpuStats *) e->data;
 	int i, j;
-	switch(mbc->rambanks) {
+	switch(cpu->mbc->rambanks) {
 		case GB_NO_RAMBANKS:
 			i = 0;
-			eprintf("no rambanks here\n");
 			break;
 		case GB_1_2K_RAMBANKS:
 			virtual_section_add(e, 0xa000, 0x800, 7, "rambank00");
@@ -40,7 +63,7 @@ int gb_set_vs_profile(emu *e)										//we need a parser here in /emu/vsection.
 			i = 0;
 			break;
 		default:
-			switch(mbc->rambanks) {
+			switch(cpu->mbc->rambanks) {
 				case GB_4_8K_RAMBANKS:
 					i = 3;
 					break;
@@ -223,6 +246,23 @@ int gb_step (emu *e, ut8 *buf)
 		case R_ANAL_OP_TYPE_CJMP:
 			ret = gb_cjmp (e);
 			break;
+		case R_ANAL_OP_TYPE_UJMP:
+			ret = gb_ujmp (e);
+			break;
+		case R_ANAL_OP_TYPE_UCALL:
+		case R_ANAL_OP_TYPE_CALL:
+			ret = gb_call (e);
+			break;
+		case R_ANAL_OP_TYPE_CCALL:
+		case R_ANAL_OP_TYPE_UCCALL:
+			ret = gb_ccall (e);
+			break;
+		case R_ANAL_OP_TYPE_RET:
+			ret = gb_ret (e);
+			break;
+		case R_ANAL_OP_TYPE_CRET:
+			ret = gb_cret (e);
+			break;
 		case R_ANAL_OP_TYPE_CMP:
 			ret = gb_cp (e);
 			break;
@@ -235,6 +275,24 @@ int gb_step (emu *e, ut8 *buf)
 		case R_ANAL_OP_TYPE_XOR:
 			ret = gb_xor (e);
 			break;
+		case R_ANAL_OP_TYPE_STORE:
+			ret = gb_store (e);
+			break;
+		case R_ANAL_OP_TYPE_LOAD:
+			ret = gb_load (e);
+			break;
 	}
+	if (r_reg_getv (e->reg, "Z"))
+		printf ("Z");
+	else	printf ("0");
+	if (r_reg_getv (e->reg, "N"))
+		printf ("N");
+	else	printf ("0");
+	if (r_reg_getv (e->reg, "H"))
+		printf ("H");
+	else	printf ("0");
+	if (r_reg_getv (e->reg, "C"))
+		printf ("C");
+	else	printf ("0");
 	return ret;
 }
