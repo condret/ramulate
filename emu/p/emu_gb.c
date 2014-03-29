@@ -20,8 +20,8 @@ EPlugin gb_emu = {
 	.set_reg_profile = &gb_set_reg_profile,
 	.read = NULL,
 	.handle_user_input = NULL,
-	.allocate_data = &gb_mbc_new,
-	.free_data = &gb_mbc_free,
+	.allocate_data = &gb_data_new,
+	.free_data = &gb_data_free,
 };
 
 struct r_lib_struct_t ramulate_plugin = {
