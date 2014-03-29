@@ -33,12 +33,23 @@ typedef struct gb_mbc_t {
 	ut8 rambanks;
 } GBmbc;
 
+typedef struct gb_cpu_stats_t {
+	GBmbc *mbc;
+	ut32 cycles;
+	ut8 input;
+	ut8 prev_input;
+	ut16 interruptlevel;
+} GBCpuStats;
 
 //new toys
-void gb_mbc_new(emu *e);
+GBmbc *gb_mbc_new (emu *e);
+GBCpuStats *gb_cpu_stats_new (emu *e);
+void gb_data_new (emu *e);
 
 //freeing
 #define gb_mbc_free free
+void gb_cpu_stats_free (GBCpuStats *cpu);
+void gb_data_free (void *data);
 
 //hardware
 int gb_set_reg_profile(emu *gb);
@@ -60,5 +71,12 @@ int gb_cp (emu *e);
 int gb_sub (emu *e);
 int gb_jmp (emu *e);
 int gb_cjmp (emu *e);
+int gb_ujmp (emu *e);
+int gb_call (emu *e);
+int gb_ccall (emu *e);
+int gb_ret (emu *e);
+int gb_cret (emu *e);
+int gb_store (emu *e);
+int gb_load (emu *e);
 
 #endif
