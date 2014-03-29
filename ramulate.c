@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-inline void set_sections (RIO *io, RBin *bin);
+static inline void set_sections (RIO *io, RBin *bin);
 static int emulation (emu *e, ut8 *buf);
 
 int main(int argc, char *argv[])
@@ -122,7 +122,8 @@ int main(int argc, char *argv[])
 
 	if (e->plugin->step)
 		while ( c < 10000 && emulation (e, buf)) c++;
-	else printf ("cannot emulate, please check that plugin\n");
+	else printf ("cannot emulate, please check that plugin");
+	printf ("\n");
 
 
 	free (buf);
@@ -135,7 +136,7 @@ int main(int argc, char *argv[])
 	return R_TRUE;
 }
 
-inline void set_sections(RIO *io, RBin *bin)
+static inline void set_sections(RIO *io, RBin *bin)
 {
 	RBinSection *section;
 	RListIter *iter;
@@ -151,6 +152,7 @@ static int emulation (emu *e, ut8 *buf)
 {
 	int ret;
 	ut64 addr = r_reg_getv (e->reg, r_reg_get_name (e->reg, R_REG_NAME_PC));		//Check Breakboints here: new return stat for that
+	printf ("<0x%08"PFMT64x">", addr);
 	if (e->plugin->read) {
 		if (e->plugin->min_read_sz)
 			e->plugin->read (e, addr, buf, e->plugin->min_read_sz);
@@ -166,17 +168,24 @@ static int emulation (emu *e, ut8 *buf)
 		if (e->plugin->min_read_sz)
 			r_asm_disassemble (e->a, e->op, buf, e->plugin->min_read_sz);
 		else	r_asm_disassemble (e->a, e->op, buf, sizeof(int));
+		printf ("\t%15s", e->op->buf_asm);
 	}
 
 	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL) {						//only analize if it is necessary
 		if (e->plugin->min_read_sz)
 			r_anal_op (e->anal, e->anop, addr, buf, e->plugin->min_read_sz);
 		else	r_anal_op (e->anal, e->anop, addr, buf, sizeof(int));
+		if (&e->anop->esil)
+			printf ("\t%25s", r_strbuf_get (&e->anop->esil));
 	}
+
+	printf ("\t");
 
 	ret = e->plugin->step (e, buf);
 
-	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL)						// do this for RAnalValue
+	printf ("\n");
+
+	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL)
 		r_anal_op_fini (e->anop);
 
 	return ret;
