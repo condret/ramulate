@@ -49,3 +49,38 @@ void emu_free(emu *e)
 	if (e->screen) sdb_free (e->screen);
 	free(e);
 }
+
+int emu_step (emu *e, ut8 *buf)
+{
+	int ret;
+	ut64 addr = r_reg_getv (e->reg, r_reg_get_name (e->reg, R_REG_NAME_PC));		//Check Breakboints here: new return stat for that
+	if (e->plugin->read) {
+		if (e->plugin->min_read_sz)
+			e->plugin->read (e, addr, buf, e->plugin->min_read_sz);
+		else	e->plugin->read (e, addr, buf, sizeof(int));
+	} else {
+		if (e->plugin->min_read_sz)
+			emu_read (e, addr, buf, e->plugin->min_read_sz);
+		else	emu_read (e, addr, buf, sizeof(int));
+	}
+
+	if (e->plugin->deps & EMU_PLUGIN_DEP_ASM) {						//only disassemble if it is necessary
+		r_asm_set_pc (e->a, addr);
+		if (e->plugin->min_read_sz)
+			r_asm_disassemble (e->a, e->op, buf, e->plugin->min_read_sz);
+		else	r_asm_disassemble (e->a, e->op, buf, sizeof(int));
+	}
+
+	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL) {						//only analize if it is necessary
+		if (e->plugin->min_read_sz)
+			r_anal_op (e->anal, e->anop, addr, buf, e->plugin->min_read_sz);
+		else	r_anal_op (e->anal, e->anop, addr, buf, sizeof(int));
+	}
+
+	ret = e->plugin->step (e, buf);
+
+	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL)
+		r_anal_op_fini (e->anop);
+
+	return ret;
+}
