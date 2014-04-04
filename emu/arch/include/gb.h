@@ -28,6 +28,14 @@ enum {
 	GB_16_8K_RAMBANKS
 };
 
+enum {
+	GB_INT_VBL = 0x40,		//VBlank
+	GB_INT_LCD = 0x48,		//LCDC-Status
+	GB_INT_TIM = 0x50,		//Timer-overflow
+	GB_INT_STC = 0x58,		//Serial-Transfer-Completition
+	GB_INT_JP  = 0x60		//Joypad
+};
+
 typedef struct gb_mbc_t {
 	ut8 type;
 	ut8 rambanks;
@@ -35,10 +43,17 @@ typedef struct gb_mbc_t {
 
 typedef struct gb_cpu_stats_t {
 	GBmbc *mbc;
-	ut32 cycles;
-	ut8 input;
-	ut8 prev_input;
-	ut16 interruptlevel;
+	ut32 cycles;			//timer
+	ut32 prev_cycles;		//timer
+	ut8 input;			//JOYPAD
+	ut8 prev_input;			//JOYPAD
+	ut16 interruptlevel;		//level of interrupt, needed for ret and reti
+	ut8 div;
+	ut8 tima;
+	ut8 tac;
+	ut32 timer_ccl;			//number of cycles since last timer-increment
+	ut8 ly;
+	ut16 render_ccl;		//missing ccl until ly gets incremented
 } GBCpuStats;
 
 //new toys
@@ -57,6 +72,7 @@ int gb_set_vs_profile(emu *e);
 void gb_get_mbc(RIO *io, GBmbc *mbc);
 //void gb_read(emu *e, ut64 addr, ut8 *buf, ut32 len);
 //void gb_write(emu *e, ut64 addr, ut8 *buf, ut32 len);
+int gb_input_handler (emu *e, char input);
 int gb_step(emu *e, ut8 *buf);
 
 // rules for reading and writing are defined here
@@ -65,7 +81,13 @@ int gb_write(emu *e, ut64 addr, ut8 *buf, ut32 len);
 
 //ops
 int gb_mov (emu *e);
+int gb_push (emu *e);
+int gb_pop (emu *e);
 int gb_xor (emu *e);
+int gb_and (emu *e);
+int gb_or (emu *e);
+int gb_bit (emu *e);
+int gb_rol (emu *e);
 int gb_add (emu *e);
 int gb_cp (emu *e);
 int gb_sub (emu *e);
