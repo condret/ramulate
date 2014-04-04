@@ -2,6 +2,7 @@
 
 #include <r_reg.h>
 #include <r_io.h>
+#include <r_socket.h>
 #include <r_bin.h>
 #include <r_lib.h>
 #include <r_asm.h>
@@ -13,14 +14,13 @@
 #include <stdio.h>
 
 static inline void set_sections (RIO *io, RBin *bin);
-static int emulation (emu *e, ut8 *buf);
 
 int main(int argc, char *argv[])
 {
 	emu *e;
 	ut8 *buf;
-	char *file = NULL, *arch = NULL;
-	int opt;
+	char *file = NULL, *arch = NULL, *port = NULL;
+	int opt, debug = R_FALSE;
 	ut32 c = 0;
 	switch (argc) {
 		case 1:
@@ -29,13 +29,17 @@ int main(int argc, char *argv[])
 			file = argv[1];
 			break;
 		default:
-			while ((opt = getopt(argc, argv, "a:f:")) != -1) {
+			while ((opt = getopt(argc, argv, "a:f:D:")) != -1) {
 				switch (opt) {
 					case 'a':
 						arch = optarg;
 						break;
 					case 'f':
 						file = optarg;
+						break;
+					case 'D':
+						port = optarg;
+						debug = R_TRUE;
 						break;
 				}
 			}
@@ -55,7 +59,7 @@ int main(int argc, char *argv[])
 		return R_FALSE;
 	}
 
-	r_bin_load (e->bin, argv[1], 0, 0, 0);
+	r_bin_load (e->bin, file, 0, 0, 0);
 	if (!e->bin->cur->o->info && !arch) {
 		eprintf("No such bin plugin\n");
 		r_io_close (e->io, e->io->fd);
@@ -120,11 +124,22 @@ int main(int argc, char *argv[])
 	if (e->plugin->screen)
 		e->screen = sdb_screen_new (e->plugin->screen);
 
-	if (e->plugin->step)
-		while ( c < 10000 && emulation (e, buf)) c++;
-	else printf ("cannot emulate, please check that plugin");
-	printf ("\n");
-
+	if (debug) {
+		e->r2 = r_socket_new (0);
+		printf ("Waiting for r2 ...\n");
+		r_socket_listen (e->r2, port, NULL);
+		e->r2 = r_socket_accept (e->r2);
+		printf ("say hello\n");
+		while (emu_remote (e, buf)){}
+	} else {
+		if (e->plugin->step)
+			while ( c < 100000 && (emu_step (e, buf) == EMU_STEP_RET_OK)) c++;	//just for testing
+		else printf ("cannot emulate, please check that plugin");
+	}
+	if (debug) {
+		r_socket_close (e->r2);
+		r_socket_free (e->r2);
+	}
 
 	free (buf);
 
@@ -145,48 +160,4 @@ static inline void set_sections(RIO *io, RBin *bin)
 		r_io_section_add (io,	section->offset, section->rva, section->size,
 					section->vsize, section->srwx, section->name);
 	}
-}
-
-
-static int emulation (emu *e, ut8 *buf)
-{
-	int ret;
-	ut64 addr = r_reg_getv (e->reg, r_reg_get_name (e->reg, R_REG_NAME_PC));		//Check Breakboints here: new return stat for that
-	printf ("<0x%08"PFMT64x">", addr);
-	if (e->plugin->read) {
-		if (e->plugin->min_read_sz)
-			e->plugin->read (e, addr, buf, e->plugin->min_read_sz);
-		else	e->plugin->read (e, addr, buf, sizeof(int));
-	} else {
-		if (e->plugin->min_read_sz)
-			emu_read (e, addr, buf, e->plugin->min_read_sz);
-		else	emu_read (e, addr, buf, sizeof(int));
-	}
-
-	if (e->plugin->deps & EMU_PLUGIN_DEP_ASM) {						//only disassemble if it is necessary
-		r_asm_set_pc (e->a, addr);
-		if (e->plugin->min_read_sz)
-			r_asm_disassemble (e->a, e->op, buf, e->plugin->min_read_sz);
-		else	r_asm_disassemble (e->a, e->op, buf, sizeof(int));
-		printf ("\t%15s", e->op->buf_asm);
-	}
-
-	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL) {						//only analize if it is necessary
-		if (e->plugin->min_read_sz)
-			r_anal_op (e->anal, e->anop, addr, buf, e->plugin->min_read_sz);
-		else	r_anal_op (e->anal, e->anop, addr, buf, sizeof(int));
-		if (&e->anop->esil)
-			printf ("\t%25s", r_strbuf_get (&e->anop->esil));
-	}
-
-	printf ("\t");
-
-	ret = e->plugin->step (e, buf);
-
-	printf ("\n");
-
-	if (e->plugin->deps & EMU_PLUGIN_DEP_ANAL)
-		r_anal_op_fini (e->anop);
-
-	return ret;
 }
