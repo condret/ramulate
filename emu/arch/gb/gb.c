@@ -125,8 +125,6 @@ int gb_set_vs_profile(emu *e)										//we need a parser here in /emu/vsection.
 	emu_write(e, 0xff40, &wbuf, 1);
 	wbuf = 0xfc;
 	emu_write(e, 0xff47, &wbuf, 1);
-	wbuf = 0x94;
-	emu_write(e, 0xff44, &wbuf, 1);
 	return R_TRUE;
 }
 
@@ -225,20 +223,128 @@ int gb_read(emu *e, ut64 addr, ut8 *buf, ut32 len)
 	return emu_read(e, addr, buf, len);
 }
 
+int gb_input_handler (emu *e, char input)
+{
+	GBCpuStats *cpu = (GBCpuStats *)e->data;
+	cpu->input = (ut8)input;
+	return R_TRUE;
+}
+
+int gb_interrupts (emu *e)			//needs a lot of more love
+{
+	ut8 ien, ifl, tac, tma, tima, ly;
+	ut16 pc = r_reg_getv (e->reg, "pc"), sp = r_reg_getv (e->reg, "sp") - 2;
+	GBCpuStats *cpu = (GBCpuStats *)e->data;
+	gb_read (e, 0xff07, &tac, 1);
+	gb_read (e, 0xff06, &tma, 1);
+	gb_read (e, 0xff05, &tima, 1);
+	gb_read (e, 0xff0f, &ifl, 1);
+	gb_read (e, 0xffff, &ien, 1);
+	gb_read (e, 0xff44, &ly, 1);
+	if (ly != cpu->ly)
+		ly = 0;
+	cpu->render_ccl += cpu->cycles - cpu->prev_cycles;
+	if (cpu->render_ccl >= 456) {
+		cpu->render_ccl -= 456;
+		ly++;
+		if (ly == 153)
+			ly = 0;
+		cpu->ly = ly;
+	}
+	gb_write (e, 0xff44, &ly, 1);
+	if ((tac&3) != (cpu->tac&3)) {
+		cpu->timer_ccl = 0;		//XXX
+		cpu->tac = tac;
+	}
+	if (tac & 4) {
+		cpu->timer_ccl += cpu->cycles - cpu->prev_cycles;
+		switch (tac & 3) {
+			case 0:
+				while (cpu->timer_ccl >= 256) {
+					tima = (tima + 1) & 0xff;
+					cpu->timer_ccl -= 256;
+				}
+				break;
+			case 1:
+				while (cpu->timer_ccl >= 4) {		//check below, if he new value is smaler than the new one, if so, add the content of tma and throw interrupt
+					tima = (tima + 1) & 0xff;
+					cpu->timer_ccl -= 4;
+				}
+				break;
+			case 2:
+				while (cpu->timer_ccl >= 16) {
+					tima = (tima + 1) & 0xff;
+					cpu->timer_ccl -= 16;
+				}
+				break;
+			case 3:
+				while (cpu->timer_ccl >= 64) {
+					tima = (tima +1) & 0xff;
+					cpu->timer_ccl -= 64;
+				}
+		}
+	}
+	if (cpu->input != cpu->prev_input) {
+		if ((ien & 16) && r_reg_getv (e->reg, "ime")) {
+			ifl = 16;
+			gb_write (e, 0xff0f, &ifl, 1);		//how to reset this?
+			r_reg_setv (e->reg, "ime", R_FALSE);
+			gb_write (e, (ut64)sp, (ut8 *)&pc, 2);	//manual push
+			r_reg_setv (e->reg, "mpc", GB_INT_JP);
+			r_reg_setv (e->reg, "sp", sp);
+			cpu->interruptlevel++;
+		}
+		cpu->input = cpu->prev_input;
+	}
+	if (cpu->tima > tima) {
+		tima = (tima+tma) & 0xff;
+		if ((ien & 4) && r_reg_getv (e->reg, "ime")) {
+			ifl = 4;
+			gb_write (e, 0xff0f, &ifl, 1);
+			r_reg_setv (e->reg, "ime", R_FALSE);
+			gb_write (e, (ut64)sp, (ut8 *)&pc, 2);
+			r_reg_setv (e->reg, "mpc", GB_INT_TIM);
+			r_reg_setv (e->reg, "sp", sp);
+			cpu->interruptlevel++;
+		}
+	}
+	if (ly > 144) {						//vblank
+		if ((ien & 1) && r_reg_getv (e->reg, "ime")) {
+			ifl = 1;
+			gb_write (e, 0xff0f, &ifl, 1);
+			r_reg_setv (e->reg, "ime", R_FALSE);
+			gb_write (e, (ut64)sp, (ut8 *)&pc, 2);
+			r_reg_setv (e->reg, "mpc", GB_INT_VBL);
+			r_reg_setv (e->reg, "sp", sp);
+			cpu->interruptlevel++;
+		}
+	}
+	cpu->tima = tima;
+	gb_write (e, 0xff05, &tima, 1);
+	return R_TRUE;
+}
 
 
 int gb_step (emu *e, ut8 *buf)
 {
 	int ret = R_FALSE;
+	GBCpuStats *cpu = (GBCpuStats *)e->data;
+	cpu->cycles += e->anop->cycles;
 	r_reg_set_value (e->reg, r_reg_get (e->reg, "pc", -1), r_reg_getv(e->reg, "pc") + e->op->size);
 	switch (e->anop->type) {
 		case R_ANAL_OP_TYPE_NOP:
-			return R_TRUE;
+			ret = R_TRUE;
 		case R_ANAL_OP_TYPE_TRAP:
 		case R_ANAL_OP_TYPE_ILL:
 			break;
 		case R_ANAL_OP_TYPE_MOV:
 			ret = gb_mov (e);
+			break;
+		case R_ANAL_OP_TYPE_PUSH:
+			ret = gb_push (e);
+			break;
+		case R_ANAL_OP_TYPE_POP:
+			ret = gb_pop (e);
 			break;
 		case R_ANAL_OP_TYPE_JMP:
 			ret = gb_jmp (e);
@@ -254,7 +360,6 @@ int gb_step (emu *e, ut8 *buf)
 			ret = gb_call (e);
 			break;
 		case R_ANAL_OP_TYPE_CCALL:
-		case R_ANAL_OP_TYPE_UCCALL:
 			ret = gb_ccall (e);
 			break;
 		case R_ANAL_OP_TYPE_RET:
@@ -275,6 +380,18 @@ int gb_step (emu *e, ut8 *buf)
 		case R_ANAL_OP_TYPE_XOR:
 			ret = gb_xor (e);
 			break;
+		case R_ANAL_OP_TYPE_AND:
+			ret = gb_and (e);
+			break;
+		case R_ANAL_OP_TYPE_OR:
+			ret = gb_or (e);
+			break;
+		case R_ANAL_OP_TYPE_ACMP:
+			ret = gb_bit (e);
+			break;
+		case R_ANAL_OP_TYPE_ROL:
+			ret = gb_rol (e);
+			break;
 		case R_ANAL_OP_TYPE_STORE:
 			ret = gb_store (e);
 			break;
@@ -282,17 +399,8 @@ int gb_step (emu *e, ut8 *buf)
 			ret = gb_load (e);
 			break;
 	}
-	if (r_reg_getv (e->reg, "Z"))
-		printf ("Z");
-	else	printf ("0");
-	if (r_reg_getv (e->reg, "N"))
-		printf ("N");
-	else	printf ("0");
-	if (r_reg_getv (e->reg, "H"))
-		printf ("H");
-	else	printf ("0");
-	if (r_reg_getv (e->reg, "C"))
-		printf ("C");
-	else	printf ("0");
+	gb_interrupts (e);
+	cpu->cycles &= 0xffffff;	//prevent overflows
+	cpu->prev_cycles = cpu->cycles;
 	return ret;
 }
