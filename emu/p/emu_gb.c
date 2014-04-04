@@ -19,7 +19,7 @@ EPlugin gb_emu = {
 	.set_vs_profile = &gb_set_vs_profile,
 	.set_reg_profile = &gb_set_reg_profile,
 	.read = NULL,
-	.handle_user_input = NULL,
+	.handle_user_input = &gb_input_handler,
 	.allocate_data = &gb_data_new,
 	.free_data = &gb_data_free,
 };
