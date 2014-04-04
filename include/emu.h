@@ -9,6 +9,7 @@
 #include <r_asm.h>
 #include <r_anal.h>
 #include <r_types.h>
+#include <r_socket.h>
 #include <sdb.h>
 #include <screen.h>
 
@@ -26,6 +27,8 @@ typedef struct virtual_section_t {
 typedef struct emu_t {
 	RReg *reg;
 	RIO *io;
+	RSocket *r2;
+	ut64 seek;
 	RBin *bin;
 	RLib *lib;
 	RList *vsections;
@@ -46,8 +49,15 @@ enum {
 	EMU_PLUGIN_DEP_ANAL
 };
 
+enum {
+	EMU_STEP_RET_UNKNOWN_OP = 0,
+	EMU_STEP_RET_OK,
+	EMU_STEP_RET_SEGFAULT,
+	EMU_STEP_RET_BP
+};				//more ?
+
 #define RAMULATE_EMU_PLUGIN	42
-//#define RAMULATE_SCREEN_PLUGIN	23	do we need this?
+#define RAMULATE_SCREEN_PLUGIN	23
 
 typedef struct emu_plugin_t {
 	char *arch;
@@ -64,6 +74,22 @@ typedef struct emu_plugin_t {
 	void (*allocate_data)(struct emu_t *e);
 	void (*free_data)(void *data);
 } EPlugin;
+
+typedef struct emu_edb_command_t {		//rename this stuff
+	ut64 job;
+	ut64 value;
+} edbc;
+
+enum {
+	EDB_READ = 0,
+	EDB_WRITE,
+	EDB_SEEK,
+	EDB_DR,
+	EDB_DRW,
+	EDB_DRP,
+	EDB_STEP,
+	EDB_CLOSE
+};
 
 #define	VS_MAX_NAME_LEN	63
 
@@ -86,6 +112,7 @@ enum {
 /* --- emu/emu.c --- */
 emu *emu_new();
 void emu_free(emu *e);
+int emu_step(emu *e, ut8 *buf);
 /* --- emu/emu.c --- */
 
 /* --- vsection --- */
@@ -114,6 +141,7 @@ int virtual_section_list(emu *e, int mode);
 /* --- emu/e_io.c --- */
 int emu_read(emu *e, ut64 addr, ut8 *buf, ut64 len);
 int emu_write(emu *e, ut64 addr, ut8 *buf, ut64 len);
+int emu_remote(emu *e, ut8 *buf);					//buf is only used for step
 /* --- emu/e_io.c --- */
 
 /* --- emu/plugins.c --- */
@@ -123,6 +151,5 @@ void emu_list_plugins(emu *e);
 int emu_plugin_cb(struct r_lib_plugin_t *p, void *a, void *b);
 int emu_plugin_cb_end(struct r_lib_plugin_t *p, void *a, void *b);
 /* --- emu/plugins.c --- */
-
 
 #endif
