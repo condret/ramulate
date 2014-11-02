@@ -31,3 +31,4 @@ and much more
 A lot of things need be to done
 
 this project is dead, sry
+but you can still play with hackboy.gb :)
